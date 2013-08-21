@@ -75,9 +75,9 @@
 
 (defmacro with-rulebase (rulebase &body body)
   `(destructuring-bind (*interactive* *auto-backtrack* *last-continuation*
-                        *trail* *x-env* *y-env*
-                        *top-level-envs* *top-level-vars*
-                        *num-slots* *prolog-rules*) ,rulebase
+                                      *trail* *x-env* *y-env*
+                                      *top-level-envs* *top-level-vars*
+                                      *num-slots* *prolog-rules*) ,rulebase
      ,@body))
 
 
@@ -90,8 +90,8 @@
 
 (defmacro functor (term)
   `(cond ((consp ,term) (car ,term))
-	 ((vectorp ,term) (svref ,term 1))
-	 (t ,term)))
+         ((vectorp ,term) (svref ,term 1))
+         (t ,term)))
 
 (defmacro principal-functor (rule)
   `(functor (head ,rule)))
@@ -130,8 +130,8 @@
 
 (defmacro molecule-p (exp)
   `(and (vectorp ,exp)
-	(not (stringp ,exp))
-	(eq (svref ,exp 0) 'molecule)))
+        (not (stringp ,exp))
+        (eq (svref ,exp 0) 'molecule)))
 
 (defmacro mol-skel (molecule)
   `(svref ,molecule 1))
@@ -185,12 +185,6 @@
 (defmacro impossible? (env)
   `(eq ,env *impossible*))
 
-(defmacro cut? (goal)
-  `(and (molecule-p ,goal) (string= (functor (mol-skel ,goal)) 'cut)))
-
-(defmacro unify? (goal)
-  `(and (molecule-p ,goal) (string= (functor (mol-skel ,goal)) '=)))
-
 (defmacro level-tag? (goal)
   `(eq ,goal '*level-tag*))
 
@@ -242,17 +236,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Hooks to common lisp.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defun lisp-hook? (goal)
-  (and (consp goal) (string= (car goal) 'lisp)))
-
-(defmacro lisp-hook-mol? (goal)
-  `(and (molecule-p ,goal) (lisp-hook? (mol-skel ,goal))))
 
 (defun lisp-query? (goal)
-  (and (consp goal) (string= (car goal) 'lop)))
-
-(defmacro lisp-query-mol? (goal)
-  `(and (molecule-p ,goal) (lisp-query? (mol-skel ,goal))))
+  (and (consp goal) (eq (car goal) 'lop)))
 
 ;; Scan the form, replacing all logical variables with their values in the
 ;; given environment.  The optional variable "query" is true if we are
@@ -263,14 +249,14 @@
 	((var? exp)
 	 (if (anon-var? exp)
 	   '??
-	   ; deref in goal environment
+	   ;; deref in goal environment
 	   (let ((val (x-view-var exp env)))
 	     (if (eq val exp)
 	       (if query
-		 ; pretty-print logical vars
+		 ;; pretty-print logical vars
 		 (cadr exp)
 		 exp)
-	       ; use new environment
+	       ;; use new environment
 	       (expand-logical-vars val *x-env* query)))))
 	((molecule-p exp) (expand-logical-vars (mol-skel exp) (mol-env exp)))
 	((stringp exp) exp)
@@ -308,8 +294,6 @@
 ;; The IS clause - unification on variables returned from calls to Lisp.
 ;; The general form is (is ?v1 ... ?vn (lop (lisp-hook))).
 ;; Binds the ?vi variables to the values returned from (lisp-hook).
-(defmacro is? (goal)
-  `(and (molecule-p ,goal) (string= (functor (mol-skel ,goal)) 'is)))
 
 (defun do-is (molecule)
   (let ((goal (mol-skel molecule))
@@ -318,16 +302,16 @@
         (vars nil)
 	(retvals nil)
         (return-env t))
-    ; collect all of the logical variables
+    ;; collect all of the logical variables
     (dolist (elt (cdr goal))
       (if (lisp-query? elt)
 	(setf hook elt)
 	(push elt vars)))
-    ; run the lisp hook function
+    ;; run the lisp hook function
     (if (lisp-query? hook)
       (setf retvals (get-lisp-hook-values hook env))
       (error "IS clause must have a LOP hook (~s)" goal))
-    ; unify the results with the IS arguments 
+    ;; unify the results with the IS arguments 
     (cond ((member *impossible* retvals)
 	   (setf return-env *impossible*))
           ((< (length retvals) (length vars))
@@ -365,19 +349,19 @@
      (remhash ,functor *prolog-rules*)
      (set-env ,functor nil)))
 
-(defmacro all-prolog-rules ()           ; nothing calls this! WSA 2009dec2
+(defmacro all-prolog-rules ()       ; nothing calls this! WSA 2009dec2
   `(let ((result nil))
      (maphash #'(lambda (key val)
-		  (declare (ignore key))
-		  (setf result (append val result)))
+                  (declare (ignore key))
+                  (setf result (append val result)))
               *prolog-rules*)
      result))
 
 (defmacro remove-all-prolog-rules ()
   `(progn
      (maphash #'(lambda (key val)
-		  (declare (ignore val))
-		  (set-env key nil))
+                  (declare (ignore val))
+                  (set-env key nil))
               *prolog-rules*)
      (clrhash *prolog-rules*)))
 
@@ -385,12 +369,12 @@
 (defun index-rule (skeleton num-vars)
   (let ((func (principal-functor skeleton)))
     (if (symbolp func)
-      (add-rule-to-index skeleton func num-vars))))
+        (add-rule-to-index skeleton func num-vars))))
 
 (defun push-rule (skeleton num-vars)
   (let ((func (principal-functor skeleton)))
     (if (symbolp func)
-      (push-rule-to-index skeleton func num-vars))))
+        (push-rule-to-index skeleton func num-vars))))
 
 ;; Add a rule to prolog.  Each skeleton is paired with the number of
 ;; variables in its environment, so new environments can be built easily.
@@ -445,10 +429,10 @@
 ;; Search to solve goals in possible environment.
 (defun pl-search (goals level back)
   (search-rules
-    goals
-    (get-rule-molecules (goal-functor (first goals)))
-    level
-    back))
+   goals
+   (get-rule-molecules (goal-functor (first goals)))
+   level
+   back))
 
 ;; Called when a goal successfully matched a rule or fact in the database
 ;; (used for I/O and debugging).
@@ -467,7 +451,7 @@
 
 (defun succeed-continue (goal goals rule level back)
   (succeed-trace goal rule back)
-  ; pop level tags off top of goal stack and adjust level accordingly
+  ;; pop level tags off top of goal stack and adjust level accordingly
   (loop
      (if (level-tag? (car goals))
          (progn
@@ -488,51 +472,42 @@
   `(progn (fail-trace ,goal)
           (continue-on ,back)))
 
-;;; Helpers for SEARCH-RULES:
-(defun asserta? (goal)
-  (and (molecule-p goal) (string= (functor (mol-skel goal)) 'asserta)))
-
-(defun assertz? (goal)
-  (and (molecule-p goal) (string= (functor (mol-skel goal)) 'assertz)))
-
-(defun retract? (goal)
-  (and (molecule-p goal) (string= (functor (mol-skel goal)) 'retract)))
-
-(defun fail? (goal)
-  (and (molecule-p goal) (string= (functor (mol-skel goal)) 'fail)))
-
 ;; Attempt to match a goal against rules in the database.
 (defun search-rules (goals rules level back)
   #-PCLS
   (declare (inline succeed-continue))
-  (let ((goal (first goals)))
-    (cond ((null goals) (succeed back))
-	  ; goal is a call to unify (=)
-	  ((unify? goal)
-	   (if (impossible? (do-unify goal))
+  (let* ((goal (first goals))
+         (is-molecule (molecule-p goal))
+         (fsym (if is-molecule (functor (mol-skel goal)) nil)))
+    (if (null goals)
+        (succeed back)
+        (case fsym
+          ;; goal is a call to unify (=)
+          (=
+           (if (impossible? (do-unify goal))
                (fail-continue goal back)
                (succeed-continue goal (rest goals) nil level back)))
-	  ; goal is a prolog "cut" clause
-	  ((cut? goal)
-	   (succeed-continue goal (rest goals) nil level (do-cut back level)))
-	  ; goal is an "is" clause
-	  ((is? goal)
-	   (if (impossible? (do-is goal))
+          ;; goal is a prolog "cut" clause
+          (cut
+           (succeed-continue goal (rest goals) nil level (do-cut back level)))
+          ;; goal is an "is" clause
+          (is
+           (if (impossible? (do-is goal))
                (fail-continue goal back)
                (succeed-continue goal (rest goals) nil level back)))
           ;; adding new data to the database - always succeeds
-          ((asserta? goal)
+          (asserta
            (pl-asserta (list (expand-logical-vars
                               (second (mol-skel goal))
                               (mol-env goal))))
            (succeed-continue goal (rest goals) nil level back))
-          ((assertz? goal)
+          (assertz
            (pl-assert (list (expand-logical-vars
                              (second (mol-skel goal))
                              (mol-env goal))))
            (succeed-continue goal (rest goals) nil level back))
           ;; Retract succeeds if it finds something to yank out.
-          ((retract? goal)
+          (retract
            ;; FILTER-VARS because you can retract facts with logical
            ;; variables, though not ??.
            (if (not (pl-retract (list (filter-vars
@@ -541,41 +516,42 @@
                                         (mol-env goal))))))
                (fail-continue goal back)
                (succeed-continue goal (rest goals) nil level back)))
-          ((fail? goal)
+          (fail
            (fail-continue goal back))
-	  ; goal is a common lisp hook - always succeeds
-	  ((lisp-hook-mol? goal)
-	   (do-lisp-hook goal)
-	   (succeed-continue goal (rest goals) nil level back))
-	  ; goal is a common lisp query
-	  ((lisp-query-mol? goal)
-	   (if (impossible? (do-lisp-hook goal))
+          ;; goal is a common lisp hook - always succeeds
+          (lisp
+           (do-lisp-hook goal)
+           (succeed-continue goal (rest goals) nil level back))
+          ;; goal is a common lisp query
+          (lop
+           (if (impossible? (do-lisp-hook goal))
                (fail-continue goal back)
                (succeed-continue goal (rest goals) nil level back)))
-          ; goal is a variable, check to see if it is bound to a
-          ; molecule and if so, try to solve it instead.
-          ; RRK -- I am not sure that this is right.  It makes not
-          ; seem to work correctly, but it really seems like an
-          ; improper fix.  Oh well.  Hope it doesn't break something
-          ; else. 
-          ((and (molecule-p goal) (var? (mol-skel goal)))
-           (let ((var-val (lookup-var (mol-skel goal) (mol-env goal))))
-             (if (molecule-p var-val)
-                 (pl-search (cons var-val (cdr goals)) level back)
-                 (fail-continue goal back))))
-	  ; otherwise, goal is a general prolog goal
-	  ((match-rule-head goal goals rules level back)))))
+          (otherwise
+           ;; goal is a variable, check to see if it is bound to a
+           ;; molecule and if so, try to solve it instead.
+           ;; RRK -- I am not sure that this is right.  It makes not
+           ;; seem to work correctly, but it really seems like an
+           ;; improper fix.  Oh well.  Hope it doesn't break something
+           ;; else. 
+           (if (and is-molecule (var? (mol-skel goal)))
+               (let ((var-val (lookup-var (mol-skel goal) (mol-env goal))))
+                 (if (molecule-p var-val)
+                     (pl-search (cons var-val (cdr goals)) level back)
+                     (fail-continue goal back)))
+               ;; otherwise, goal is a general prolog goal
+               (match-rule-head goal goals rules level back)))))))
 
 ;; Match a goal against the pending rules.  NOTE that the result of this
 ;; function is nconc'ed in match-rule-head.
 (defun new-goals (molecule)
   (let ((env (rule-env molecule)))
     (do ((goals (rule-body molecule) (cdr goals))
-	 (result nil))
-	((null goals) (nreverse result))
+         (result nil))
+        ((null goals) (nreverse result))
       (push (make-molecule (first goals)
-			   env)
-	    result))))
+                           env)
+            result))))
 
 (defun match-rule-head (goal goals pending-rules level back)
   #-PCLS
@@ -584,8 +560,8 @@
        (old-trail *trail*))
       ((null rules) (fail-continue goal back))
     (if (not (impossible? (unify (goal-body goal) (goal-env goal)
-				 (rule-head (first rules))
-				 (rule-env (first rules)))))
+                                 (rule-head (first rules))
+                                 (rule-env (first rules)))))
         (let ((new-goals (new-goals (first rules))))
           (incf *lips*)
           (return
@@ -594,37 +570,37 @@
              (nconc new-goals (cons '*level-tag* (rest goals)))
              (first rules)
              (1+ level)
-             (make-cont goals		    ; goals
-                        (rest rules)	    ; rules
-                        level		    ; level
-                        back		    ; back
-                        old-trail	    ; trail
+             (make-cont goals           ; goals
+                        (rest rules)    ; rules
+                        level           ; level
+                        back            ; back
+                        old-trail       ; trail
                         nil)))))))	    ; trace
 
 ;; Continue searching with continuation - used to backtrack to a choice
 ;; point and continue executing.
 (defun continue-on (cont)
   (if (null cont)
-    *impossible*
-    (if (null (cont-goals cont))
-      (continue-on (cont-back cont))
-      (progn
-	; wrap trail back to last choice point, undoing bindings
-	(untrail (cont-trail cont))
-	; resume search
-	(search-rules (cont-goals cont) (cont-rules cont)
-		      (cont-level cont) (cont-back cont))))))
+      *impossible*
+      (if (null (cont-goals cont))
+          (continue-on (cont-back cont))
+          (progn
+            ;; wrap trail back to last choice point, undoing bindings
+            (untrail (cont-trail cont))
+            ;; resume search
+            (search-rules (cont-goals cont) (cont-rules cont)
+                          (cont-level cont) (cont-back cont))))))
 
 ;; Remove alternatives from a continuation - used to strip away pending
 ;; goals when a cut operator is executed.
 (defun remove-alternatives (cont level)
   (if cont
       (make-cont (cont-goals cont)	    ; goals
-                 nil			    ; rules
-                 level			    ; level 
-                 (cont-back cont)	    ; back
+                 nil                    ; rules
+                 level                  ; level 
+                 (cont-back cont)       ; back
                  (cont-trail cont)	    ; trail
-                 nil)))			    ; trace
+                 nil)))                 ; trace
 
 ;; Perform a cut operation.
 (defun do-cut (cont level)
@@ -640,9 +616,9 @@
 ;; Explicit call to unify (= lhs rhs) - unify lhs with rhs.
 (defun do-unify (goal)
   (let* ((skel (mol-skel goal))
-	 (env (mol-env goal))
-	 (lhs (cadr skel))
-	 (rhs (caddr skel)))
+         (env (mol-env goal))
+         (lhs (cadr skel))
+         (rhs (caddr skel)))
     (unify (expand-lisp-hooks lhs env) env (expand-lisp-hooks rhs env) env)))
 
 ;; If term is a lisp-query, it is evaluated and its result returned; if not,
@@ -657,34 +633,34 @@
 ;; environment.
 (defun x-view-var (x env)
   (cond ((var? x)
-	 (if (anon-var? x)
+         (if (anon-var? x)
              x
              (let ((val (lookup-var x env)))
                (if (pl-bound? val)
                    (x-view-var val env)
                    x))))
-	((molecule-p x)
-	 (x-view-var (mol-skel x) (setq *x-env* (mol-env x))))
-	(t x)))
+        ((molecule-p x)
+         (x-view-var (mol-skel x) (setq *x-env* (mol-env x))))
+        (t x)))
 
 (defun y-view-var (y env)
   (cond ((var? y)
-	 (if (anon-var? y)
+         (if (anon-var? y)
              y
              (let ((val (lookup-var y env)))
                (if (pl-bound? val)
                    (y-view-var val env)
                    y))))
-	((molecule-p y)
-	 (y-view-var (mol-skel y) (setq *y-env* (mol-env y))))
-	(t y)))
+        ((molecule-p y)
+         (y-view-var (mol-skel y) (setq *y-env* (mol-env y))))
+        (t y)))
 
 ;; Unify - unification, returns environment in which x and y are unified.
 ;; Unify sets up environments and trail, and cleans up on failure.
 (defun unify (x x-env y y-env)
   (let ((save-trail *trail*) (ans nil))
-    (setf *x-env* x-env)			  ;goal environment
-    (setf *y-env* y-env)			  ;rule environment
+    (setf *x-env* x-env)                ;goal environment
+    (setf *y-env* y-env)                ;rule environment
     (if (impossible? (setf ans (unify1 x y))) (untrail save-trail))
     ans))
 
@@ -697,15 +673,15 @@
   #-PCLS
   (declare (inline pl-bind))
   (cond ((var? x) (pl-bind x *x-env* y *y-env*))
-        ; bind variables if distinct
+        ;; bind variables if distinct
         ((var? y) (pl-bind y *y-env* x *x-env*))
-        ; unify atoms 
+        ;; unify atoms 
         ((atom x) (if (equalp x y) t *impossible*))
         ((atom y) *impossible*)
-        ; both terms complex
+        ;; both terms complex
         ((let ((x-env *x-env*)
-	       (y-env *y-env*))
-	   (if (impossible? (unify1 (car x) (car y)))
+               (y-env *y-env*))
+           (if (impossible? (unify1 (car x) (car y)))
                *impossible*
                (progn
                  (setf *x-env* x-env)
@@ -720,11 +696,11 @@
 (defun succeed (back)
   (when *interactive*
     (show-bindings *top-level-vars*
-		   *top-level-envs*))
+                   *top-level-envs*))
   (setf *last-continuation* back)
-  ; query the user if more
+  ;; query the user if more
   (if (or *auto-backtrack* (and *interactive* (y-or-n-p "More? ")))
-    ; force failure to get more solutions
+      ;; force failure to get more solutions
       (let* ((save-binding-list
               (build-binding-list *top-level-vars* *top-level-envs*))
              (ans (continue-on back)))
@@ -741,8 +717,9 @@
 (defun build-binding-list (vars env)
   (let ((result nil))
     (mapc #'(lambda (x)
-	      (push (cons (car x) (expand-logical-vars (cdr x) env t)) result))
-	  vars)
+              (push (cons (car x)
+                          (expand-logical-vars (cdr x) env t)) result))
+          vars)
     (if result (nreverse result) t)))
 
 ;; Show result bindings (bindings of goal variables).
@@ -750,8 +727,8 @@
   (let ((bindings (build-binding-list vars envs)))
     (terpri)
     (if (atom bindings)
-      (format t "~s~%" *solved*)
-      (mapc #'show-one-binding bindings))))
+        (format t "~s~%" *solved*)
+        (mapc #'show-one-binding bindings))))
 
 (defun show-one-binding (binding)
   (format t "~s = ~s~%" (lhs binding) (rhs binding)))
@@ -774,26 +751,26 @@
 ;;; and must share an environment.
 (defun calcify (form alist)
   (cond ((null form) nil)
-	((symbolp form)
+        ((symbolp form)
          (if (var-name? form)
              (if (anon-var-name? form)
                  '(*var* ?? -1)
                  (let ((slot (assoc form (car alist))))
                    (if (not slot)
                        (let ((nv `(,form . (*var* ,form ,(incf *num-slots*)))))
-                         ; destructively modify alist
+                         ;; destructively modify alist
                          (push nv (car alist))
                          (setf slot nv)))
-		   ; return new rep for var
+                   ;; return new rep for var
                    (cdr slot)))
              form))
-	((stringp form) form)
-	((vectorp form)
-	 (dotimes (i (length form) form)
-	   (setf (svref form i) (calcify (svref form i) alist))))
-	((atom form) form)
-	(t (cons (calcify (car form) alist)
-		 (calcify (cdr form) alist)))))
+        ((stringp form) form)
+        ((vectorp form)
+         (dotimes (i (length form) form)
+           (setf (svref form i) (calcify (svref form i) alist))))
+        ((atom form) form)
+        (t (cons (calcify (car form) alist)
+                 (calcify (cdr form) alist)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Assert and solve - lisp calls to prolog.
@@ -860,7 +837,7 @@
 (defmacro do-solve-all ((&rest vars) goals &body body)
   (let* ((env (gensym "ENV"))
          (binding-list (loop for var in vars
-                             collecting (list var `(cdr (assoc ',var ,env))))))
+                          collecting (list var `(cdr (assoc ',var ,env))))))
     `(do ((,env (pl-solve-one ,goals) (pl-solve-next)))
          ((null ,env))
        (let ,binding-list
@@ -876,8 +853,8 @@
 (defun subst-alist (alist tree &key (test #'eql))
   (let ((new-tree tree))
     (loop for (old . new) in alist
-          do (setf new-tree (subst new old new-tree :test test))
-          finally (return new-tree))))
+       do (setf new-tree (subst new old new-tree :test test))
+       finally (return new-tree))))
 
 (defun retract-fact (fact)
   ;; facts can be: ((mortal ?x)) but also (fred-exists)
@@ -906,11 +883,11 @@
          (*top-level-envs* nil)
          (*top-level-vars* nil)
          (clause (filter-no (pl-solve goals))))
-    (cond ((null clause) nil)  ; no match
-          ((eq clause t)       ; literal match
+    (cond ((null clause) nil)           ; no match
+          ((eq clause t)                ; literal match
            (retract-fact goals)
            t)
-          ((listp clause)      ; unified match
+          ((listp clause)               ; unified match
            (retract-fact (subst-alist clause goals))
            t))))
 
@@ -946,7 +923,7 @@
   (if functors
       (dolist (functor functors)
         (remove-prolog-rules functor))
-      ; clear rule index
+      ;; clear rule index
       (remove-all-prolog-rules))
   t)
 
@@ -965,12 +942,12 @@
     (when rules
       (format t "~s:~%" functor)
       (dolist (rule rules)
-	(pp-rule (car rule))))))
+        (pp-rule (car rule))))))
 
 ;; Prettyprint a single rule.
 (defun pp-rule (rule)
   (let ((head (head rule))
-	(body (body rule)))
+        (body (body rule)))
     (if body
         (progn
           (format t "  (*- ~s" (filter-vars head))
@@ -982,14 +959,14 @@
 ;; Change (*var* ?x 0) to ?x for rule printing.
 (defun filter-vars (exp)
   (cond ((null exp) nil)
-	((var? exp) (cadr exp))
-	((stringp exp) exp)
-	((vectorp exp)
+        ((var? exp) (cadr exp))
+        ((stringp exp) exp)
+        ((vectorp exp)
          (setf exp (copy-seq exp))
-	 (dotimes (i (length exp) exp)
-	   (setf (svref exp i) (filter-vars (svref exp i)))))
-	((atom exp) exp)
-	(t (cons (filter-vars (car exp))
-		 (filter-vars (cdr exp))))))
+         (dotimes (i (length exp) exp)
+           (setf (svref exp i) (filter-vars (svref exp i)))))
+        ((atom exp) exp)
+        (t (cons (filter-vars (car exp))
+                 (filter-vars (cdr exp))))))
 
 ;; end of prolog.lisp

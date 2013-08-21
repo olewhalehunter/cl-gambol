@@ -48,6 +48,16 @@
            #:yes
            #:no
            #:*lips*
-           #:*tracing*))
+           #:*tracing*
+           ;;
+           #:cut
+           #:is
+           #:lisp
+           #:lop
+           #:asserta
+           #:assertz
+           #:retract
+           #:fail
+           ))
 
 ;;; package.lisp ends here
