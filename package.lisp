@@ -58,6 +58,7 @@
            #:assertz
            #:retract
            #:fail
+           #:call
            ))
 
 ;;; package.lisp ends here

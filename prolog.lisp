@@ -291,6 +291,16 @@
         *impossible*
         values)))
 
+(defun do-call (goal goals level back)
+  (let* ((skel (mol-skel goal))
+         (head (cadr skel))
+         (new-goal (append
+                    (if (var? head)
+                        (mol-skel (lookup-var head (mol-env goal))) head)
+                    (cddr skel))))
+    (pl-search (cons (make-molecule new-goal (mol-env goal)) (rest goals))
+               level back)))
+
 ;; The IS clause - unification on variables returned from calls to Lisp.
 ;; The general form is (is ?v1 ... ?vn (lop (lisp-hook))).
 ;; Binds the ?vi variables to the values returned from (lisp-hook).
@@ -527,6 +537,9 @@
            (if (impossible? (do-lisp-hook goal))
                (fail-continue goal back)
                (succeed-continue goal (rest goals) nil level back)))
+          ;; call/N
+          (call
+           (do-call goal goals level back))
           (otherwise
            ;; goal is a variable, check to see if it is bound to a
            ;; molecule and if so, try to solve it instead.

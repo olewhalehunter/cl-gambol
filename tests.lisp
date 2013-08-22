@@ -245,4 +245,36 @@
        (with-rulebase default-rulebase
          (pl-solve-one '((fibonacci 0 1))))))))
 
+(addtest (gambol-tests)
+  call-test-1
+  (ensure-same
+   '((?x . 4))
+   (progn
+     (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
+     (pl-solve-one '((call (+ 1) 3 ?x))))))
+
+(addtest (gambol-tests)
+  call-test-2
+  (ensure-same
+   '((?x . 4))
+   (progn
+     (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
+     (pl-solve-one '((call (+ 1 3) ?x))))))
+
+(addtest (gambol-tests)
+  call-test-3
+  (ensure-same
+   '((?y . (+ 1)) (?x . 4))
+   (progn
+     (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
+     (pl-solve-one '((= ?y (+ 1)) (call ?y 3 ?x))))))
+
+(addtest (gambol-tests)
+  call-test-4
+  (ensure-same
+   '((?y . (+ 1 3 4)) (?x . 4))
+   (progn
+     (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
+     (pl-solve-one '((= ?y (+ 1 3 ?x)) (call ?y))))))
+
 ;;; tests.lisp ends here
