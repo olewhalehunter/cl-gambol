@@ -277,4 +277,28 @@
      (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
      (pl-solve-one '((= ?y (+ 1 3 ?x)) (call ?y))))))
 
+(addtest (gambol-tests)
+  nonvar-test-1
+  (ensure-same
+   t
+   (pl-solve-one '((nonvar 1)))))
+
+(addtest (gambol-tests)
+  nonvar-test-2
+  (ensure-same
+   nil
+   (pl-solve-one '((nonvar ?x)))))
+
+(addtest (gambol-tests)
+  nonvar-test-3
+  (ensure-same
+   '((?x . 1))
+   (pl-solve-one '((= ?x 1) (nonvar ?x)))))
+
+(addtest (gambol-tests)
+  nonvar-test-4
+  (ensure-same
+   nil
+   (pl-solve-one '((= ?x 1) (nonvar ?y)))))
+
 ;;; tests.lisp ends here

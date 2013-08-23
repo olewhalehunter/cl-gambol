@@ -482,6 +482,14 @@
   `(progn (fail-trace ,goal)
           (continue-on ,back)))
 
+(defun do-nonvar (goal goals level back)
+  (let ((arg (second (mol-skel goal))))
+    (if (or
+         (not (var? arg))
+         (pl-bound? (lookup-var arg (mol-env goal))))
+        (succeed-continue goal (rest goals) nil level back)
+        (fail-continue goal back))))
+
 ;; Attempt to match a goal against rules in the database.
 (defun search-rules (goals rules level back)
   #-PCLS
@@ -540,6 +548,9 @@
           ;; call/N
           (call
            (do-call goal goals level back))
+          ;; nonvar/1
+          (nonvar
+           (do-nonvar goal goals level back))
           (otherwise
            ;; goal is a variable, check to see if it is bound to a
            ;; molecule and if so, try to solve it instead.

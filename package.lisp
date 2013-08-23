@@ -59,6 +59,7 @@
            #:retract
            #:fail
            #:call
+           #:nonvar
            ))
 
 ;;; package.lisp ends here
