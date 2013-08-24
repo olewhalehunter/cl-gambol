@@ -151,8 +151,10 @@
   (cdr binding))
 
 ;; Predicates for variables, atoms, and failure conditions.
-(defmacro var-name? (x)
-  `(char= #\? (char (symbol-name ,x) 0)))
+
+(defun var-name? (x)
+  (and (symbolp x)
+       (char= #\? (char (symbol-name x) 0))))
 
 ;; Test for anonymous logical variable - assumes logical variable
 (defmacro anon-var-name? (x)
@@ -273,20 +275,19 @@
 
 ;; Execute a lisp hook form and return the environment handles multiple
 ;; values returned from the Lisp expression.
+
 (defun do-lisp-hook (molecule)
   (let* ((skel (mol-skel molecule))
-	 (env (mol-env molecule))
-	 (expanded-form (expand-logical-vars (cadr skel) env)))
-    (if (null (apply (symbol-function (first expanded-form))
-                     (rest expanded-form)))
-      *impossible*
-      t)))
+         (env (mol-env molecule))
+         (args (expand-logical-vars (second skel) env)))
+    (if (apply (third skel) args)
+        T
+        *impossible*)))
 
 (defun get-lisp-hook-values (hook env)
-  (let* ((expanded-form (expand-logical-vars (cadr hook) env))
+  (let* ((args (expand-logical-vars (second hook) env))
          (values (multiple-value-list
-                  (apply (symbol-function (first expanded-form))
-                         (rest expanded-form)))))
+                  (apply (third hook) args))))
     (if (member *impossible* values)
         *impossible*
         values)))
@@ -919,24 +920,51 @@
 ; User interaction.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; internal helper functions
+(defun flatten (list)
+  (when list (if (atom list) (list list) (mapcan #'flatten list))))
+
+(defun %vars (list)
+  (remove-duplicates (remove-if-not #'var-name? (flatten list))))
+
+(defun transform-lisp-rule (rule)
+  (let ((rule-name (first rule)))
+    (let ((varlist (%vars (rest rule))))
+      `(list ',rule-name ',varlist
+             (lambda ,varlist ,@(rest rule))))))
+
+(defun transform-rule (rule)
+  (let ((rule-name (or (not (listp rule)) (first rule))))
+    (case rule-name
+      (lisp
+       (transform-lisp-rule rule))
+      (lop
+       (transform-lisp-rule rule))
+      (is
+       `(list 'is ,@(mapcar (lambda (x) (list 'quote x)) (butlast (rest rule)))
+              ,(transform-lisp-rule (first (last rule)))))
+      (otherwise
+       `(quote ,rule)))))
+
 ;; Interactive version of assert
 ;; (used to be called :- but common lisp thinks :- is a keyword).
-(defmacro *- (&rest rule)
-  `(pl-assert ',rule))
+
+(defmacro *- (&rest rules)
+  `(pl-assert (list ,@(mapcar #'transform-rule rules))))
 
 ;; Interactive version of pl-solve-one.
 (defmacro ?- (&rest goals)
   `(progn
      (setf *interactive* t)
      (setf *auto-backtrack* nil)
-     (pl-solve ',goals)))
+     (pl-solve (list ,@(mapcar #'transform-rule goals)))))
 
 ;; Interactive version of pl-solve-all.
 (defmacro ??- (&rest goals)
   `(progn
      (setf *interactive* t)
      (setf *auto-backtrack* t)
-     (pl-solve ',goals)))
+     (pl-solve (list ,@(mapcar #'transform-rule goals)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Rule and database manipulation and printing.

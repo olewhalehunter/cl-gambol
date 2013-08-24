@@ -131,7 +131,7 @@
    '(1 2)
    (progn
      (*- (values-test ?a ?b ?l)
-         (is ?a ?b (lop (apply values ?l))))
+         (is ?a ?b (lop (values-list ?l))))
      (get-unified-values '(?a ?b) (pl-solve-all '((values-test ?a ?b (1 2))))))))
 
 ;;; Quicksort, translated from lips-test.l
