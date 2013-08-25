@@ -297,8 +297,11 @@
          (head (cadr skel))
          (new-goal (append
                     (if (var? head)
-                        (mol-skel (lookup-var head (mol-env goal))) head)
+                        (mol-skel (lookup-var head (mol-env goal)))
+                        head)
                     (cddr skel))))
+
+    ;;ack next line is wrong, environment can be incorrect
     (pl-search (cons (make-molecule new-goal (mol-env goal)) (rest goals))
                level back)))
 
@@ -451,14 +454,14 @@
   (declare (ignore back))
   (if *tracing*
       (progn
-        (format t "Goal: ")
-        (pprint (expand-logical-vars (mol-skel goal) (mol-env goal) t))
-        (if rule
-            (if (molecule-p rule)
-                (progn
-                  (format t "Rule: (*- ")
-                  (pprint (expand-logical-vars (mol-skel rule) (mol-env rule) t)))
-                (format t "Fact: ~S~%" rule))))))
+        (format t "~%Goal: ~a ~a~%"
+                (expand-logical-vars (mol-skel goal) (mol-env goal) t)
+                (if rule
+                    (if (molecule-p rule)
+                        (format nil " Rule: (*- ~a)"
+                                (expand-logical-vars (mol-skel rule)
+                                                     (mol-env rule) t))
+                        (format nil " Fact: ~S" rule)))))))
 
 (defun succeed-continue (goal goals rule level back)
   (succeed-trace goal rule back)
@@ -475,9 +478,8 @@
 ;; (used for I/O, debugging).
 (defun fail-trace (goal)
   (when *tracing*
-    (format t "Goal:")
-    (pprint (expand-logical-vars (mol-skel goal) (mol-env goal) t))
-    (format t " fails...~%")))
+    (format t "~%Goal: ~a fails...~%"
+            (expand-logical-vars (mol-skel goal) (mol-env goal) t))))
 
 (defmacro fail-continue (goal back)
   `(progn (fail-trace ,goal)
@@ -488,6 +490,14 @@
     (if (or
          (not (var? arg))
          (pl-bound? (lookup-var arg (mol-env goal))))
+        (succeed-continue goal (rest goals) nil level back)
+        (fail-continue goal back))))
+
+(defun do-number (goal goals level back)
+  (let ((arg (second (mol-skel goal))))
+    (if (or
+         (numberp arg)
+         (numberp (lookup-var arg (mol-env goal))))
         (succeed-continue goal (rest goals) nil level back)
         (fail-continue goal back))))
 
@@ -552,6 +562,9 @@
           ;; nonvar/1
           (nonvar
            (do-nonvar goal goals level back))
+          ;; number/1
+          (number
+           (do-number goal goals level back))
           (otherwise
            ;; goal is a variable, check to see if it is bound to a
            ;; molecule and if so, try to solve it instead.
