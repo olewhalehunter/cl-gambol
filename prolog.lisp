@@ -240,7 +240,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun lisp-query? (goal)
-  (and (consp goal) (eq (car goal) 'lop)))
+  (and (consp goal)
+       (eq (car goal) 'lop)
+       (functionp (third goal))))
 
 ;; Scan the form, replacing all logical variables with their values in the
 ;; given environment.  The optional variable "query" is true if we are
@@ -277,20 +279,24 @@
 ;; values returned from the Lisp expression.
 
 (defun do-lisp-hook (molecule)
-  (let* ((skel (mol-skel molecule))
-         (env (mol-env molecule))
-         (args (expand-logical-vars (second skel) env)))
-    (if (apply (third skel) args)
+  (let ((skel (mol-skel molecule))
+        (env (mol-env molecule)))
+    (if (call-lisp skel env)
         T
         *impossible*)))
 
 (defun get-lisp-hook-values (hook env)
-  (let* ((args (expand-logical-vars (second hook) env))
-         (values (multiple-value-list
-                  (apply (third hook) args))))
+  (let ((values (multiple-value-list (call-lisp hook env))))
     (if (member *impossible* values)
         *impossible*
         values)))
+
+;; shared function to invoke LISP / LOP closure with
+;; vars as bound in environment and return multiple values
+(defun call-lisp (skel env)
+  (format t "call-lisp skel: ~a~%" skel)
+  (let ((args (expand-logical-vars (second skel) env)))
+    (apply (third skel) args)))
 
 (defun do-call (goal goals level back)
   (let* ((skel (mol-skel goal))
@@ -663,8 +669,7 @@
 ;; it is simply returned.
 (defun expand-lisp-hooks (term env)
   (if (lisp-query? term)
-      (let ((expanded-form (expand-logical-vars (cadr term) env)))
-        (apply (symbol-function (first expanded-form)) (rest expanded-form)))
+      (call-lisp term env)
       term))
 
 ;; Dereference to find ultimate binding of a logical variable in the goal
@@ -956,6 +961,8 @@
       (is
        `(list 'is ,@(mapcar (lambda (x) (list 'quote x)) (butlast (rest rule)))
               ,(transform-lisp-rule (first (last rule)))))
+      (=
+       `(list '= ,@(mapcar #'transform-rule (rest rule))))
       (otherwise
        `(quote ,rule)))))
 
