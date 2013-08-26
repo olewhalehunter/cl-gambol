@@ -250,30 +250,30 @@
 ;; we don't want to print the internal representation of logical variables.
 (defun expand-logical-vars (exp env &optional (query nil))
   (cond ((null exp) nil)
-	((var? exp)
-	 (if (anon-var? exp)
-	   '??
-	   ;; deref in goal environment
-	   (let ((val (x-view-var exp env)))
-	     (if (eq val exp)
-	       (if query
-		 ;; pretty-print logical vars
-		 (cadr exp)
-		 exp)
-	       ;; use new environment
-	       (expand-logical-vars val *x-env* query)))))
-	((molecule-p exp) (expand-logical-vars (mol-skel exp) (mol-env exp)))
-	((stringp exp) exp)
-	((vectorp exp)
+        ((var? exp)
+         (if (anon-var? exp)
+             '??
+             ;; deref in goal environment
+             (let ((val (x-view-var exp env)))
+               (if (eq val exp)
+                   (if query
+                       ;; pretty-print logical vars
+                       (cadr exp)
+                       exp)
+                   ;; use new environment
+                   (expand-logical-vars val *x-env* query)))))
+        ((molecule-p exp) (expand-logical-vars (mol-skel exp) (mol-env exp)))
+        ((stringp exp) exp)
+        ((vectorp exp)
          ;; Added because in debugging mode we get different answers
          ;; than in non debugging mode.
          (if query (setq exp (copy-seq exp)))
-	 (dotimes (i (length exp) exp)
-	   (setf (svref exp i)
-		 (expand-logical-vars (svref exp i) env query))))
-	((atom exp) exp)
-	(t (cons (expand-logical-vars (car exp) env query)
-		 (expand-logical-vars (cdr exp) env query)))))
+         (dotimes (i (length exp) exp)
+           (setf (svref exp i)
+                 (expand-logical-vars (svref exp i) env query))))
+        ((atom exp) exp)
+        (t (cons (expand-logical-vars (car exp) env query)
+                 (expand-logical-vars (cdr exp) env query)))))
 
 ;; Execute a lisp hook form and return the environment handles multiple
 ;; values returned from the Lisp expression.
@@ -294,22 +294,20 @@
 ;; shared function to invoke LISP / LOP closure with
 ;; vars as bound in environment and return multiple values
 (defun call-lisp (skel env)
-  (format t "call-lisp skel: ~a~%" skel)
   (let ((args (expand-logical-vars (second skel) env)))
     (apply (third skel) args)))
 
 (defun do-call (goal goals level back)
   (let* ((skel (mol-skel goal))
          (head (cadr skel))
-         (new-goal (append
-                    (if (var? head)
-                        (mol-skel (lookup-var head (mol-env goal)))
-                        head)
-                    (cddr skel))))
+         (new-goal (if (var? head)
+                       (lookup-var head (mol-env goal))
+                       (make-molecule head (mol-env goal)))))
+    (assert (= 2 (length skel)) (skel)
+            "call may only be called with one arg: ~A" skel)
 
-    ;;ack next line is wrong, environment can be incorrect
-    (pl-search (cons (make-molecule new-goal (mol-env goal)) (rest goals))
-               level back)))
+    ;; um
+    (pl-search (cons new-goal (rest goals)) level back)))
 
 ;; The IS clause - unification on variables returned from calls to Lisp.
 ;; The general form is (is ?v1 ... ?vn (lop (lisp-hook))).
@@ -562,7 +560,7 @@
            (if (impossible? (do-lisp-hook goal))
                (fail-continue goal back)
                (succeed-continue goal (rest goals) nil level back)))
-          ;; call/N
+          ;; call/1
           (call
            (do-call goal goals level back))
           ;; nonvar/1
