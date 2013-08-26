@@ -297,18 +297,6 @@
   (let ((args (expand-logical-vars (second skel) env)))
     (apply (third skel) args)))
 
-(defun do-call (goal goals level back)
-  (let* ((skel (mol-skel goal))
-         (head (cadr skel))
-         (new-goal (if (var? head)
-                       (lookup-var head (mol-env goal))
-                       (make-molecule head (mol-env goal)))))
-    (assert (= 2 (length skel)) (skel)
-            "call may only be called with one arg: ~A" skel)
-
-    ;; um
-    (pl-search (cons new-goal (rest goals)) level back)))
-
 ;; The IS clause - unification on variables returned from calls to Lisp.
 ;; The general form is (is ?v1 ... ?vn (lop (lisp-hook))).
 ;; Binds the ?vi variables to the values returned from (lisp-hook).
@@ -488,6 +476,19 @@
 (defmacro fail-continue (goal back)
   `(progn (fail-trace ,goal)
           (continue-on ,back)))
+
+(defun do-call (goal goals level back)
+  (let* ((skel (mol-skel goal))
+         (head (cadr skel))
+         (new-goal (if (var? head)
+                       (lookup-var head (mol-env goal))
+                       (make-molecule head (mol-env goal)))))
+    (assert (= 2 (length skel)) (skel)
+            "call may only be called with one arg: ~A" skel)
+
+    (if (molecule-p new-goal)
+        (pl-search (cons new-goal (rest goals)) level back)
+        (fail-continue goal back))))
 
 (defun do-nonvar (goal goals level back)
   (let ((arg (second (mol-skel goal))))
