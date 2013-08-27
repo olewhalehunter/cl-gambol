@@ -411,18 +411,18 @@
        (result nil))
       ((null goal-list)
        (progn
-	 (setf *top-level-vars* (nreverse acc-env))
-	 (let ((g-env (make-empty-environment (1+ *num-slots*))))
-	   (setf *top-level-envs* g-env)
-	   (nreverse
-	    (mapcar #'(lambda (x)
-			(make-molecule x g-env))
-		    result)))))
-      ;; make goal skeleton
-      (let* ((env (list acc-env))
-	     (skel (calcify (first goal-list) env)))
-	(setf acc-env (car env))
-	(push skel result))))
+         (setf *top-level-vars* (nreverse acc-env))
+         (let ((g-env (make-empty-environment (1+ *num-slots*))))
+           (setf *top-level-envs* g-env)
+           (nreverse
+            (mapcar #'(lambda (x)
+                        (make-molecule x g-env))
+                    result)))))
+    ;; make goal skeleton
+    (let* ((env (list acc-env))
+           (skel (calcify (first goal-list) env)))
+      (setf acc-env (car env))
+      (push skel result))))
 
 
 ;; Attempt to solve a list of goals with respect to rule-base.
@@ -561,12 +561,15 @@
            ;; seem to work correctly, but it really seems like an
            ;; improper fix.  Oh well.  Hope it doesn't break something
            ;; else. 
+           ;; This is slightly better but still broken, works on a few
+           ;; more cases than previous incarnation, but the environment
+           ;; is wrong. -SAG
            (if (and is-molecule (var? (mol-skel goal)))
                (let ((var-val (lookup-var (mol-skel goal) (mol-env goal))))
                  (if (molecule-p var-val)
                      (let ((new-goal (make-molecule (expand-logical-vars (mol-skel var-val)
                                                                          (mol-env var-val))
-                                                    *x-env*)))
+                                                    *x-env*))) ;; wrong
                        (pl-search (cons new-goal (cdr goals)) level back))
                      (fail-continue goal back)))
                ;; otherwise, goal is a general prolog goal
