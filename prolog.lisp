@@ -303,28 +303,28 @@
 
 (defun do-is (molecule)
   (let ((goal (mol-skel molecule))
-	(env (mol-env molecule)) 
-	(hook nil)
+        (env (mol-env molecule)) 
+        (hook nil)
         (vars nil)
-	(retvals nil)
+        (retvals nil)
         (return-env t))
     ;; collect all of the logical variables
     (dolist (elt (cdr goal))
       (if (lisp-query? elt)
-	(setf hook elt)
-	(push elt vars)))
+          (setf hook elt)
+          (push elt vars)))
     ;; run the lisp hook function
     (if (lisp-query? hook)
-      (setf retvals (get-lisp-hook-values hook env))
-      (error "IS clause must have a LOP hook (~s)" goal))
+        (setf retvals (get-lisp-hook-values hook env))
+        (error "IS clause must have a LOP hook (~s)" goal))
     ;; unify the results with the IS arguments 
     (cond ((member *impossible* retvals)
-	   (setf return-env *impossible*))
+           (setf return-env *impossible*))
           ((< (length retvals) (length vars))
-	   (error "IS: LOP returns too few values (~s)" goal))
-	  (t (dolist (var (nreverse vars))
-	       (setf return-env (unify var env (pop retvals) env))
-	       (if (impossible? return-env) (return return-env)))))
+           (error "IS: LOP returns too few values (~s)" goal))
+          (t (dolist (var (nreverse vars))
+               (setf return-env (unify var env (pop retvals) env))
+               (if (impossible? return-env) (return return-env)))))
     return-env))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -477,19 +477,6 @@
   `(progn (fail-trace ,goal)
           (continue-on ,back)))
 
-(defun do-call (goal goals level back)
-  (let* ((skel (mol-skel goal))
-         (head (cadr skel))
-         (new-goal (if (var? head)
-                       (lookup-var head (mol-env goal))
-                       (make-molecule head (mol-env goal)))))
-    (assert (= 2 (length skel)) (skel)
-            "call may only be called with one arg: ~A" skel)
-
-    (if (molecule-p new-goal)
-        (pl-search (cons new-goal (rest goals)) level back)
-        (fail-continue goal back))))
-
 (defun do-nonvar (goal goals level back)
   (let ((arg (second (mol-skel goal))))
     (if (or
@@ -561,9 +548,6 @@
            (if (impossible? (do-lisp-hook goal))
                (fail-continue goal back)
                (succeed-continue goal (rest goals) nil level back)))
-          ;; call/1
-          (call
-           (do-call goal goals level back))
           ;; nonvar/1
           (nonvar
            (do-nonvar goal goals level back))
@@ -580,7 +564,10 @@
            (if (and is-molecule (var? (mol-skel goal)))
                (let ((var-val (lookup-var (mol-skel goal) (mol-env goal))))
                  (if (molecule-p var-val)
-                     (pl-search (cons var-val (cdr goals)) level back)
+                     (let ((new-goal (make-molecule (expand-logical-vars (mol-skel var-val)
+                                                                         (mol-env var-val))
+                                                    *x-env*)))
+                       (pl-search (cons new-goal (cdr goals)) level back))
                      (fail-continue goal back)))
                ;; otherwise, goal is a general prolog goal
                (match-rule-head goal goals rules level back)))))))

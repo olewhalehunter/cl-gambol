@@ -58,7 +58,6 @@
            #:assertz
            #:retract
            #:fail
-           #:call
            #:nonvar
            ))
 

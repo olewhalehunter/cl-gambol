@@ -251,6 +251,7 @@
    '((?x . 4))
    (progn
      (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
+     (*- (call ?f) ?f)
      (pl-solve-one '((call (+ 1 3 ?x)))))))
 
 (addtest (gambol-tests)
@@ -259,6 +260,7 @@
    '((?x . 4))
    (progn
      (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
+     (*- (call ?f) ?f)
      (pl-solve-one '((call (+ 1 3 ?x)))))))
 
 (addtest (gambol-tests)
@@ -267,7 +269,7 @@
    '((?y . (+ 1 3 4)) (?x . 4))
    (progn
      (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
-     (pl-solve-one '((= ?y (+ 1 3 ?x)) (call ?y))))))
+     (pl-solve-one '((= ?y (+ 1 3 ?x)) ?y)))))
 
 (addtest (gambol-tests)
   call-test-4
@@ -275,7 +277,7 @@
    '((?y . (+ 1 3 4)) (?x . 4))
    (progn
      (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
-     (pl-solve-one '((= ?y (+ 1 3 ?x)) (call ?y))))))
+     (pl-solve-one '((= ?y (+ 1 3 ?x)) ?y)))))
 
 (addtest (gambol-tests)
   nonvar-test-1
