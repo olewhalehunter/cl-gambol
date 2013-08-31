@@ -1,6 +1,5 @@
                   Gambol - a slighly modified Frolic
 
-
 The GAMBOL package is a trivially modified extraction of the logic
 programming portion of the Frolic system written at the University of
 Utah.  I have made a few changes to get it to compile under a modern
@@ -11,7 +10,11 @@ For documentation, examples and a full list of the changes I've made
 to turn Frolic into Gambol, please see the software web site,
 http://cl-gambol.googlecode.com/
 
-
+Further slight improvements made by Stephen A. Goss in 2013, including
+better native Lisp calls (LISP and LOP produce lexical closures), and
+a working "call" mechanism (invoking a goal from a var bound to a structure).
+These improvements are available on github:
+https://github.com/deliciousrobots/cl-gambol
 
                               COPYRIGHT
 
@@ -24,6 +27,7 @@ the MIT license.
 [1] http://www.cs.cmu.edu/afs/cs.cmu.edu/project/ai-repository/ai/lang/prolog/impl/prolog/frolic/
 
 
+Copyright (c) 2013 Stephen A. Goss.
 Copyright (c) 2008-2009 William S. Annis.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

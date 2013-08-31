@@ -275,6 +275,32 @@
         (t (cons (expand-logical-vars (car exp) env query)
                  (expand-logical-vars (cdr exp) env query)))))
 
+;; Used by do-call to expand all logical variables when possible,
+;; and then collect unbound vars in a container to be later
+;; converted into a new environment for the call
+(defun expand-2 (exp env var-box)
+  (cond ((null exp) nil)
+        ((var? exp)
+         (if (anon-var? exp)
+             '??
+             ;; deref in goal environment
+             (let ((val (x-view-var exp env)))
+               (if (eq val exp)
+                   (let ((var-mol (make-molecule exp env)))
+                     (push var-mol (car var-box))
+                     var-mol)
+                   ;; use new environment
+                   (expand-2 val *x-env* var-box)))))
+        ((molecule-p exp) (expand-2 (mol-skel exp) (mol-env exp)))
+        ((stringp exp) exp)
+        ((vectorp exp)
+         (dotimes (i (length exp) exp)
+           (setf (svref exp i)
+                 (expand-2 (svref exp i) env var-box))))
+        ((atom exp) exp)
+        (t (cons (expand-2 (car exp) env var-box)
+                 (expand-2 (cdr exp) env var-box)))))
+
 ;; Execute a lisp hook form and return the environment handles multiple
 ;; values returned from the Lisp expression.
 
@@ -493,6 +519,30 @@
         (succeed-continue goal (rest goals) nil level back)
         (fail-continue goal back))))
 
+(defun replace-var-mol (skel env-list)
+  (cond
+    ((molecule-p skel)
+     (let ((pos (position skel env-list :test #'equal)))
+       `(*var* ,(var-name (mol-skel skel)) ,pos)))
+    ((consp skel)
+     (mapcar (lambda (s) (replace-var-mol s env-list)) skel))
+    (T skel)))
+
+(defun do-call (goal goals level back)
+  (let ((var-val (lookup-var (mol-skel goal) (mol-env goal))))
+    (if (molecule-p var-val)
+        (let* ((var-box (cons nil nil))
+               (new-skel (expand-2 (mol-skel var-val)
+                                   (mol-env var-val)
+                                   var-box))
+               (var-list (car var-box))
+               (env-list (remove-duplicates var-list :test #'equal))
+               (actual-skel (replace-var-mol new-skel env-list))
+               (new-env (map 'vector #'identity env-list))
+               (new-goal (make-molecule actual-skel new-env)))
+          (pl-search (cons new-goal (cdr goals)) level back))
+        (fail-continue goal back))))
+
 ;; Attempt to match a goal against rules in the database.
 (defun search-rules (goals rules level back)
   #-PCLS
@@ -555,23 +605,11 @@
           (number
            (do-number goal goals level back))
           (otherwise
-           ;; goal is a variable, check to see if it is bound to a
-           ;; molecule and if so, try to solve it instead.
-           ;; RRK -- I am not sure that this is right.  It makes not
-           ;; seem to work correctly, but it really seems like an
-           ;; improper fix.  Oh well.  Hope it doesn't break something
-           ;; else. 
-           ;; This is slightly better but still broken, works on a few
-           ;; more cases than previous incarnation, but the environment
-           ;; is wrong. -SAG
            (if (and is-molecule (var? (mol-skel goal)))
-               (let ((var-val (lookup-var (mol-skel goal) (mol-env goal))))
-                 (if (molecule-p var-val)
-                     (let ((new-goal (make-molecule (expand-logical-vars (mol-skel var-val)
-                                                                         (mol-env var-val))
-                                                    *x-env*))) ;; wrong
-                       (pl-search (cons new-goal (cdr goals)) level back))
-                     (fail-continue goal back)))
+               ;; I think I got the call mechanism working correctly. It
+               ;; creates a new environment with single var molecules for
+               ;; all unbound vars. Yeah, that should do it. -SAG
+               (do-call goal goals level back)
                ;; otherwise, goal is a general prolog goal
                (match-rule-head goal goals rules level back)))))))
 
