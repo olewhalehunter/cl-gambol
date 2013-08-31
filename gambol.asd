@@ -30,8 +30,8 @@
 (defsystem :gambol
   :name "GAMBOL"
   :author "William S. Annis <wm.annis@gmail.com>"
-  :version "0.03"
-  :maintainer "William S. Annis <wm.annis@gmail.com>"
+  :version "0.04"
+  :maintainer "Stephen A. Goss <steveth45@gmail.com>"
   :licence "MIT License"
   :description "A small prolog library based on Frolic"
 
