@@ -291,7 +291,7 @@
                      var-mol)
                    ;; use new environment
                    (expand-2 val *x-env* var-box)))))
-        ((molecule-p exp) (expand-2 (mol-skel exp) (mol-env exp)))
+        ((molecule-p exp) (expand-2 (mol-skel exp) (mol-env exp) var-box))
         ((stringp exp) exp)
         ((vectorp exp)
          (dotimes (i (length exp) exp)
@@ -978,40 +978,44 @@
       `(list ',rule-name ',varlist
              (lambda ,varlist ,@(rest rule))))))
 
-(defun transform-rule (rule)
-  (let ((rule-name (or (not (listp rule)) (first rule))))
-    (case rule-name
-      (lisp
-       (transform-lisp-rule rule))
-      (lop
-       (transform-lisp-rule rule))
-      (is
-       `(list 'is ,@(mapcar (lambda (x) (list 'quote x)) (butlast (rest rule)))
-              ,(transform-lisp-rule (first (last rule)))))
-      (=
-       `(list '= ,@(mapcar #'transform-rule (rest rule))))
-      (otherwise
-       `(quote ,rule)))))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun transform-rule (rule)
+    (let ((rule-name (or (not (listp rule)) (first rule))))
+      (case rule-name
+        (lisp
+         (transform-lisp-rule rule))
+        (lop
+         (transform-lisp-rule rule))
+        (is
+         `(list 'is ,@(mapcar (lambda (x) (list 'quote x)) (butlast (rest rule)))
+                ,(transform-lisp-rule (first (last rule)))))
+        (=
+         `(list '= ,@(mapcar #'transform-rule (rest rule))))
+        (otherwise
+         `(quote ,rule))))))
+
+(defmacro parse-rules (&rest rules)
+  `(list ,@(mapcar #'transform-rule rules)))
 
 ;; Interactive version of assert
 ;; (used to be called :- but common lisp thinks :- is a keyword).
 
 (defmacro *- (&rest rules)
-  `(pl-assert (list ,@(mapcar #'transform-rule rules))))
+  `(pl-assert (parse-rules ,@rules)))
 
 ;; Interactive version of pl-solve-one.
 (defmacro ?- (&rest goals)
   `(progn
      (setf *interactive* t)
      (setf *auto-backtrack* nil)
-     (pl-solve (list ,@(mapcar #'transform-rule goals)))))
+     (pl-solve (parse-rules ,@goals))))
 
 ;; Interactive version of pl-solve-all.
 (defmacro ??- (&rest goals)
   `(progn
      (setf *interactive* t)
      (setf *auto-backtrack* t)
-     (pl-solve (list ,@(mapcar #'transform-rule goals)))))
+     (pl-solve (parse-rules ,@goals))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Rule and database manipulation and printing.

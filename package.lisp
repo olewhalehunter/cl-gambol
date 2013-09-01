@@ -30,6 +30,7 @@
   (:export #:make-rulebase
            #:current-rulebase
            #:with-rulebase
+           #:parse-rules
            #:*-
            #:?-
            #:??-
