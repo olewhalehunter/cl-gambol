@@ -303,4 +303,49 @@
    nil
    (pl-solve-one (= ?x 1) (nonvar ?y))))
 
+(addtest (gambol-tests)
+  bagof-test-1
+  (ensure-same
+   nil
+   (bagof ?x (fail))))
+
+(addtest (gambol-tests)
+  bagof-test-2
+  (ensure-same
+   '(20)
+   (bagof ?x (= ?x 20))))
+
+(addtest (gambol-tests)
+  bagof-test-3
+  (ensure-same
+   '((bar bar) (bar baz) (baz bar) (baz baz))
+   (progn
+     (*- (foo bar))
+     (*- (foo baz))
+     (*- (qux ?x ?y) (foo ?x) (foo ?y))
+     (bagof (?x ?y) (qux ?x ?y)))))
+
+(addtest (gambol-tests)
+  bagof-test-4
+  (ensure-same
+   '(bar bar baz baz)
+   (progn
+     (*- (foo bar))
+     (*- (foo baz))
+     (*- (qux ?x ?y) (foo ?x) (foo ?y))
+     (bagof ?x (qux ?x ?y)))))
+
+(addtest (gambol-tests)
+  setof-test-1
+  (ensure-same
+   '(bar baz)
+   (progn
+     (*- (foo bar))
+     (*- (foo baz))
+     (*- (qux ?x ?y) (foo ?x) (foo ?y))
+     (setof ?x (qux ?x ?y)))))
+
+(run-tests)
+(describe *test-result*)
+
 ;;; tests.lisp ends here

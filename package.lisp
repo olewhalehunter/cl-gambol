@@ -60,6 +60,8 @@
            #:retract
            #:fail
            #:nonvar
+           #:bagof
+           #:setof
            ))
 
 ;;; package.lisp ends here

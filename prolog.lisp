@@ -945,6 +945,24 @@
        (let ,binding-list
          ,@body))))
 
+(defun make-pattern-builder (pattern)
+  (cond
+    ((consp pattern)
+     (list 'cons
+           (make-pattern-builder (first pattern))
+           (make-pattern-builder (rest pattern))))
+    ((var-name? pattern)
+     (list 'cdr (list 'assoc (list 'quote pattern) 'env)))
+    (T pattern)))
+
+(defmacro bagof (pattern &rest goals)
+  `(mapcar (lambda (env)
+               ,(make-pattern-builder pattern))
+             (pl-solve-all ,@goals)))
+
+(defmacro setof (pattern &rest goals)
+  `(remove-duplicates (bagof ,pattern ,@goals) :test #'equal))
+
 ;;; "I didn't mean that."  The next three functions handle the delicate
 ;;; matter of rule retraction.  It is at least as robust as some commercial
 ;;; prologs, in that this doesn't fiddle with any facts currently in the
