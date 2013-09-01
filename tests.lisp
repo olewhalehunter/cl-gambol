@@ -26,7 +26,7 @@
    'A
    (progn
      (*- (head ?h (?h . ??)))
-     (get-unified-value '?h (pl-solve-all '((head ?h (a b c))))))))
+     (get-unified-value '?h (pl-solve-all (head ?h (a b c)))))))
 
 (addtest (gambol-tests)
   head-2
@@ -34,7 +34,7 @@
    '(A B)
    (progn
      (*- (head ?h (?h . ??)))
-     (get-unified-value '?h (pl-solve-all '((head ?h ((a b) c))))))))
+     (get-unified-value '?h (pl-solve-all (head ?h ((a b) c)))))))
 
 (addtest (gambol-tests)
   head-3
@@ -43,7 +43,7 @@
    (progn
      (*- (head ?h (?h . ??)))
      (get-unified-values '(?h1 ?h2)
-                         (pl-solve-all '((head (?h1 ?h2) ((a b) c d))))))))
+                         (pl-solve-all (head (?h1 ?h2) ((a b) c d)))))))
 
 (addtest (gambol-tests)
   tail
@@ -51,7 +51,7 @@
    '(B C)
    (progn
      (*- (tail ?t (?? . ?t)))
-     (get-unified-value '?t (pl-solve-all '((tail ?t (a b c))))))))
+     (get-unified-value '?t (pl-solve-all (tail ?t (a b c)))))))
 
 (addtest (gambol-tests)
   member
@@ -61,7 +61,7 @@
      (*- (member ?x (?x . ??)))
      (*- (member ?x (?? . ?l))
          (member ?x ?l))
-     (pl-solve-all '((member 3 (1 2 3 4 5)))))))
+     (pl-solve-all (member 3 (1 2 3 4 5))))))
 
 (addtest (gambol-tests)
   append-1
@@ -71,7 +71,7 @@
      (*- (append (?x . ?xs) ?ys (?x . ?zs))
          (append ?xs ?ys ?zs))
      (*- (append nil ?ys ?ys))
-     (get-unified-value '?a (pl-solve-all '((append (a b) (c d) ?a)))))))
+     (get-unified-value '?a (pl-solve-all (append (a b) (c d) ?a))))))
 
 (addtest (gambol-tests)
   append-2
@@ -81,7 +81,7 @@
      (*- (append (?x . ?xs) ?ys (?x . ?zs))
          (append ?xs ?ys ?zs))
      (*- (append nil ?ys ?ys))
-     (get-unified-value '?a (pl-solve-all '((append (a b) ?a (a b c d))))))))
+     (get-unified-value '?a (pl-solve-all (append (a b) ?a (a b c d)))))))
 
 (addtest (gambol-tests)
   append-3-reverse
@@ -95,7 +95,7 @@
          (reverse ?xs ?ys)
          (append ?ys (?x) ?zs))
      (*- (reverse nil nil))
-     (get-unified-value '?a (pl-solve-all '((reverse (8 15 19 20 0 3 3 6 5 0 11 21 21 24 5 19) ?a)))))))
+     (get-unified-value '?a (pl-solve-all (reverse (8 15 19 20 0 3 3 6 5 0 11 21 21 24 5 19) ?a))))))
 
 ;;; Negation as Failure is weird.
 (addtest (gambol-tests)
@@ -110,7 +110,7 @@
          (cut)
          (fail))
      (*- (not ?p))
-     (pl-solve-all '((not (member 5 (1 2 3 4 5))))))))
+     (pl-solve-all (not (member 5 (1 2 3 4 5)))))))
 
 ;;; Yanking values from Lisp.
 (addtest (gambol-tests)
@@ -122,7 +122,7 @@
      (*- (length (?? . ?t) ?n)
          (length ?t ?n1)
          (is ?n (lop (1+ ?n1))))
-     (get-unified-value '?l (pl-solve-all '((length (a b c 1 2 3) ?l)))))))
+     (get-unified-value '?l (pl-solve-all (length (a b c 1 2 3) ?l))))))
 
 ;;; Make sure IS handles multiple values correctly.
 (addtest (gambol-tests)
@@ -132,7 +132,7 @@
    (progn
      (*- (values-test ?a ?b ?l)
          (is ?a ?b (lop (values-list ?l))))
-     (get-unified-values '(?a ?b) (pl-solve-all '((values-test ?a ?b (1 2))))))))
+     (get-unified-values '(?a ?b) (pl-solve-all (values-test ?a ?b (1 2)))))))
 
 ;;; Quicksort, translated from lips-test.l
 (addtest (gambol-tests)
@@ -160,7 +160,7 @@
       (let* ((rands (loop for a from 0 to 100 collecting (random 100)))
              (sorted (sort (copy-seq rands) #'<)))
         (pl-assert `((list100 ,rands)))
-        (equalp sorted (get-unified-value '?x (pl-solve-all '((list100 ?l) (qsort ?l ?x nil)))))))))
+        (equalp sorted (get-unified-value '?x (pl-solve-all (list100 ?l) (qsort ?l ?x nil))))))))
 
 (addtest (gambol-tests)
   factorial
@@ -178,7 +178,7 @@
          (is ?n1 (lop (1- ?n)))
          (factorial ?n1 ?f1)
          (is ?f (lop (* ?n ?f1))))
-     (get-unified-value '?f (pl-solve-all '((factorial 33 ?f)))))))
+     (get-unified-value '?f (pl-solve-all (factorial 33 ?f))))))
 
 (addtest (gambol-tests)
   assertz
@@ -191,7 +191,7 @@
      (*- (add ?p)
          (assertz ?p))
      (??- (add (fibonacci 0 1)))
-     (get-unified-values '(?n ?f) (pl-solve-all '((fibonacci ?n ?f)))))))
+     (get-unified-values '(?n ?f) (pl-solve-all (fibonacci ?n ?f))))))
 
 (addtest (gambol-tests)
   asserta
@@ -206,7 +206,7 @@
      (*- (fibonacci 0 1))
      (*- (fibonacci 1 1))
      (??- (add (fibonacci glad bags)))
-     (get-unified-values '(?n ?f) (pl-solve-all '((fibonacci ?n ?f)))))))
+     (get-unified-values '(?n ?f) (pl-solve-all (fibonacci ?n ?f))))))
 
 (addtest (gambol-tests)
   retract
@@ -215,7 +215,7 @@
      (*- (fibonacci 0 1))
      (*- (fibonacci 1 1))
      (??- (retract (fibonacci 0 1)))
-     (pl-solve-one '((fibonacci 0 1))))))
+     (pl-solve-one (fibonacci 0 1)))))
 
 (addtest (gambol-tests)
   rulebase-isolation-1
@@ -224,7 +224,7 @@
      (with-rulebase (make-rulebase)
        (*- (fibonacci 0 1))
        (*- (fibonacci 1 1)))
-     (pl-solve-one '((fibonacci 0 1))))))
+     (pl-solve-one (fibonacci 0 1)))))
 
 (addtest (gambol-tests)
   rulebase-isolation-1
@@ -233,7 +233,7 @@
      (with-rulebase (make-rulebase)
        (*- (fibonacci 0 1))
        (*- (fibonacci 1 1)))
-     (pl-solve-one '((fibonacci 0 1))))))
+     (pl-solve-one (fibonacci 0 1)))))
 
 (addtest (gambol-tests)
   rulebase-isolation-2
@@ -243,7 +243,7 @@
        (*- (fibonacci 0 1))
        (*- (fibonacci 1 1))
        (with-rulebase default-rulebase
-         (pl-solve-one '((fibonacci 0 1))))))))
+         (pl-solve-one (fibonacci 0 1)))))))
 
 (addtest (gambol-tests)
   call-test-1
@@ -252,7 +252,7 @@
    (progn
      (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
      (*- (call ?f) ?f)
-     (pl-solve-one '((call (+ 1 3 ?x)))))))
+     (pl-solve-one (call (+ 1 3 ?x))))))
 
 (addtest (gambol-tests)
   call-test-2
@@ -261,7 +261,7 @@
    (progn
      (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
      (*- (call ?f) ?f)
-     (pl-solve-one '((call (+ 1 3 ?x)))))))
+     (pl-solve-one (call (+ 1 3 ?x))))))
 
 (addtest (gambol-tests)
   call-test-3
@@ -269,7 +269,7 @@
    '((?y . (+ 1 3 4)) (?x . 4))
    (progn
      (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
-     (pl-solve-one '((= ?y (+ 1 3 ?x)) ?y)))))
+     (pl-solve-one (= ?y (+ 1 3 ?x)) ?y))))
 
 (addtest (gambol-tests)
   call-test-4
@@ -277,30 +277,30 @@
    '((?y . (+ 1 3 4)) (?x . 4))
    (progn
      (*- (+ ?x ?y ?sum) (= ?sum (lop (+ ?x ?y))))
-     (pl-solve-one '((= ?y (+ 1 3 ?x)) ?y)))))
+     (pl-solve-one (= ?y (+ 1 3 ?x)) ?y))))
 
 (addtest (gambol-tests)
   nonvar-test-1
   (ensure-same
    t
-   (pl-solve-one '((nonvar 1)))))
+   (pl-solve-one (nonvar 1))))
 
 (addtest (gambol-tests)
   nonvar-test-2
   (ensure-same
    nil
-   (pl-solve-one '((nonvar ?x)))))
+   (pl-solve-one (nonvar ?x))))
 
 (addtest (gambol-tests)
   nonvar-test-3
   (ensure-same
    '((?x . 1))
-   (pl-solve-one '((= ?x 1) (nonvar ?x)))))
+   (pl-solve-one (= ?x 1) (nonvar ?x))))
 
 (addtest (gambol-tests)
   nonvar-test-4
   (ensure-same
    nil
-   (pl-solve-one '((= ?x 1) (nonvar ?y)))))
+   (pl-solve-one (= ?x 1) (nonvar ?y))))
 
 ;;; tests.lisp ends here

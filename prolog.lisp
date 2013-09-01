@@ -846,6 +846,38 @@
 ; Assert and solve - lisp calls to prolog.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; internal helper functions / macros for transforming rules
+(defun flatten (list)
+  (when list (if (atom list) (list list) (mapcan #'flatten list))))
+
+(defun %vars (list)
+  (remove-duplicates (remove-if-not #'var-name? (flatten list))))
+
+(defun transform-lisp-rule (rule)
+  (let ((rule-name (first rule)))
+    (let ((varlist (%vars (rest rule))))
+      `(list ',rule-name ',varlist
+             (lambda ,varlist ,@(rest rule))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun transform-rule (rule)
+    (let ((rule-name (or (not (listp rule)) (first rule))))
+      (case rule-name
+        (lisp
+         (transform-lisp-rule rule))
+        (lop
+         (transform-lisp-rule rule))
+        (is
+         `(list 'is ,@(mapcar (lambda (x) (list 'quote x)) (butlast (rest rule)))
+                ,(transform-lisp-rule (first (last rule)))))
+        (=
+         `(list '= ,@(mapcar #'transform-rule (rest rule))))
+        (otherwise
+         `(quote ,rule))))))
+
+(defmacro parse-rules (&rest rules)
+  `(list ,@(mapcar #'transform-rule rules)))
+
 ;; Add a rule to the database.
 
 ;; Destructively modify a rule to produce a skeleton rule.  Each logical
@@ -873,42 +905,42 @@
 ;; Return the first solution to the query, setting *last-continuation* so
 ;; that subsequent calls to solve-next can get other solutions - the return
 ;; value is an environment, an alist with (var . binding) pairs.
-(defun pl-solve-one (goals)
-  (setf *interactive* nil)
-  (setf *auto-backtrack* nil)
-  (filter-no (pl-solve goals)))
+(defmacro pl-solve-one (&rest goals)
+  `(let ((*interactive* nil)
+         (*auto-backtrack* nil))
+     (filter-no (pl-solve (parse-rules ,@goals)))))
 
 ;; Return the next solution, using *last-continuation* (the continuation
 ;; from the most recent pl-solve-one or pl-solve-cc) or the optional
 ;; continuation provided.
 (defun pl-solve-next (&optional (cont *last-continuation*))
-  (setf *interactive* nil)
-  (setf *auto-backtrack* nil)
-  (filter-no (continue-on cont)))
+  (let ((*interactive* nil)
+        (*auto-backtrack* nil))
+    (filter-no (continue-on cont))))
 
 ;; Return the rest of the solutions, using *last-continuation* (the
 ;; continuation from the most recent pl-solve-one or pl-solve-cc) or the
 ;; optional continuation provided.
 (defun pl-solve-rest (&optional (cont *last-continuation*))
-  (setf *interactive* nil)
-  (setf *auto-backtrack* t)
-  (filter-no (continue-on cont)))
+  (let ((*interactive* nil)
+        (*auto-backtrack* t))
+    (filter-no (continue-on cont))))
 
 ;; Return all solutions to the query - the return value is a list of
 ;; environments (env env ...) where each environment is a
 ;; ((var . binding)...) alist.
-(defun pl-solve-all (goals)
-  (let ((*interactive* nil)
-        (*auto-backtrack* t))
-    (filter-no (pl-solve goals))))
+(defmacro pl-solve-all (&rest goals)
+  `(let ((*interactive* nil)
+         (*auto-backtrack* t))
+     (filter-no (pl-solve (parse-rules ,@goals)))))
 
 ;;; (do-solve-all (?who) '((mortal ?who))
 ;;;   (print ?who))
-(defmacro do-solve-all ((&rest vars) goals &body body)
+(defmacro do-solve-all ((&rest vars) (&rest goals) &body body)
   (let* ((env (gensym "ENV"))
          (binding-list (loop for var in vars
                           collecting (list var `(cdr (assoc ',var ,env))))))
-    `(do ((,env (pl-solve-one ,goals) (pl-solve-next)))
+    `(do ((,env (pl-solve-one ,@goals) (pl-solve-next)))
          ((null ,env))
        (let ,binding-list
          ,@body))))
@@ -965,37 +997,6 @@
 ; User interaction.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; internal helper functions
-(defun flatten (list)
-  (when list (if (atom list) (list list) (mapcan #'flatten list))))
-
-(defun %vars (list)
-  (remove-duplicates (remove-if-not #'var-name? (flatten list))))
-
-(defun transform-lisp-rule (rule)
-  (let ((rule-name (first rule)))
-    (let ((varlist (%vars (rest rule))))
-      `(list ',rule-name ',varlist
-             (lambda ,varlist ,@(rest rule))))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun transform-rule (rule)
-    (let ((rule-name (or (not (listp rule)) (first rule))))
-      (case rule-name
-        (lisp
-         (transform-lisp-rule rule))
-        (lop
-         (transform-lisp-rule rule))
-        (is
-         `(list 'is ,@(mapcar (lambda (x) (list 'quote x)) (butlast (rest rule)))
-                ,(transform-lisp-rule (first (last rule)))))
-        (=
-         `(list '= ,@(mapcar #'transform-rule (rest rule))))
-        (otherwise
-         `(quote ,rule))))))
-
-(defmacro parse-rules (&rest rules)
-  `(list ,@(mapcar #'transform-rule rules)))
 
 ;; Interactive version of assert
 ;; (used to be called :- but common lisp thinks :- is a keyword).
