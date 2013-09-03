@@ -50,6 +50,7 @@
            #:no
            #:*lips*
            #:*tracing*
+           #:*error-missing-rule*
            ;;
            #:cut
            #:is

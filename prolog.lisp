@@ -46,10 +46,13 @@
 ;;; Constants, really.
 (defvar *impossible*          'no "make impossible look nice")
 (defvar *solved*             'yes "make solved look nice")
+(defvar *builtin-functors*   '(= cut is asserta assertz retract fail
+                               lisp lop nonvar))
 
 ;;; Controllable/accessible by the user.
 (defvar *tracing*             nil "if t, tracing is turned on")
 (defvar *lips*                  0 "logical inferences per second")
+(defvar *error-missing-rule*  nil "if t, signal error on missing rule")
 
 ;;; Altered in the course of finding solutions.
 (defvar *interactive*           t "true iff interacting with user")
@@ -460,11 +463,20 @@
 
 ;; Search to solve goals in possible environment.
 (defun pl-search (goals level back)
-  (search-rules
-   goals
-   (get-rule-molecules (goal-functor (first goals)))
-   level
-   back))
+  (let* ((functor (goal-functor (first goals)))
+         (rules (get-rule-molecules functor)))
+    (when (and *error-missing-rule*
+               goals ;; this is null sometimes, skip it
+               (not (eq functor '*var*)) ;; calling var, skip it
+               (null rules) ;; no rules were found
+               ;; if it is a builtin, skip it
+               (not (member functor *builtin-functors*)))
+      (error "Rule missing from rulebase: ~a" functor))
+    (search-rules
+     goals
+     rules
+     level
+     back)))
 
 ;; Called when a goal successfully matched a rule or fact in the database
 ;; (used for I/O and debugging).
@@ -601,9 +613,6 @@
           ;; nonvar/1
           (nonvar
            (do-nonvar goal goals level back))
-          ;; number/1
-          (number
-           (do-number goal goals level back))
           (otherwise
            (if (and is-molecule (var? (mol-skel goal)))
                ;; I think I got the call mechanism working correctly. It
@@ -1024,16 +1033,14 @@
 
 ;; Interactive version of pl-solve-one.
 (defmacro ?- (&rest goals)
-  `(progn
-     (setf *interactive* t)
-     (setf *auto-backtrack* nil)
+  `(let ((*interactive* t)
+         (*auto-backtrack* nil))
      (pl-solve (parse-rules ,@goals))))
 
 ;; Interactive version of pl-solve-all.
 (defmacro ??- (&rest goals)
-  `(progn
-     (setf *interactive* t)
-     (setf *auto-backtrack* t)
+  `(let ((*interactive* t)
+         (*auto-backtrack* t))
      (pl-solve (parse-rules ,@goals))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1064,19 +1071,20 @@
     (when rules
       (format t "~s:~%" functor)
       (dolist (rule rules)
-        (pp-rule (car rule))))))
+        (princ (pp-rule (car rule)))))))
 
 ;; Prettyprint a single rule.
 (defun pp-rule (rule)
-  (let ((head (head rule))
-        (body (body rule)))
-    (if body
-        (progn
-          (format t "  (*- ~s" (filter-vars head))
-          (dolist (form body)
-            (format t "~%~6t~s" (filter-vars form)))
-          (format t ")~%"))
-        (format t "  (*- ~s)~%" (filter-vars head)))))
+  (with-output-to-string (s)
+    (let ((head (head rule))
+          (body (body rule)))
+      (if body
+          (progn
+            (format s "  (*- ~s" (filter-vars head))
+            (dolist (form body)
+              (format s "~%~6t~s" (filter-vars form)))
+            (format s ")~%"))
+          (format s "  (*- ~s)~%" (filter-vars head))))))
 
 ;; Change (*var* ?x 0) to ?x for rule printing.
 (defun filter-vars (exp)

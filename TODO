@@ -1,0 +1,14 @@
+TODO:
+* Replace all uses of DO with LOOP.
+
+* Rewrite tests with better documentation and coverage.
+
+* Functor represented by (symbol . arity), not just a symbol. Will allow
+*error-on-missing* to signal error when calling rule with wrong arity.
+
+* Allow for declaring of relations (will allow *error-missing-rule* to work
+with empty relations).
+
+* Add *require-declaration* which will allow for stronger checking of rule
+arity when adding rules (otherwise misnamed rules and/or rules with wrong arity
+will just create implicit declaration).
