@@ -1,44 +1,52 @@
-;;; -*- Mode: LISP; Syntax: Common-lisp; Package: gambol; Lowercase: Yes -*-
-;;;
-;;; See README for copyright information about this modification of FROLIC.
+#|
+  This file is a part of gambol project.
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;
-; File:         prolog.l
-; Description:  prolog-style search procedure with continuations
-; Author:       Jed Krohnfeldt / Craig Steury, University of Utah
-; Created:      5-Aug-86
-; Language:     Lisp
-; Package:      FROLIC
-;
-; (c) Copyright 1986, 1987, University of Utah, all rights reserved.
-;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;
-; This program combines propositional search and unification to achieve a
-; predicate-calculus search capability as in Prolog.
-; This version of the program implements backtracking and the cut operator
-; using a tail-recursive algorithm, implemented with continuations.
-; Continuations capture the current state of a computation in such a form
-; that it can be restarted at a later time, such as for backtracking to 
-; Prolog choice points.
-;
-; Prolog rules are created with:  (*- head body body ...) - body may be empty
-; Prolog queries are posed with:  (?- goal goal ...)
-;
-; * logical variables are preceeded with a question mark (?)
-; * a lisp predicate in the body of a rule is wrapped in (lop (pred))
-;   a lisp predicate succeeds if it returns non-nil, and fails otherwise
-; * logical variables may be used in lisp predicates provided they are bound
-;   by a prolog clause prior to their use - 
-;          example (?- (foo ?x) (lop (equal ?x 2)))
-; * use pl-solve-one, pl-solve-next, pl-solve-rest and pl-solve-all to
-;   return prolog bindings to lisp
-;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  Copyright (c) 2013 Stephen A. Goss (steveth45@gmail.com)
+  Copyright (c) 2008-2009 William S. Annis.  All rights reserved.
+  Copyright 1986, 1987, University of Utah, all rights reserved.
+|#
 
+(in-package :cl-user)
+(defpackage gambol
+  (:use :cl)
+  (:export #:make-rulebase
+           #:current-rulebase
+           #:with-rulebase
+           #:parse-rules
+           #:*-
+           #:?-
+           #:??-
+           #:??
+           #:pl-assert
+           #:pl-asserta
+           #:pl-retract
+           #:pl-solve-one
+           #:pl-solve-next
+           #:pl-solve-rest
+           #:pl-solve-all
+           #:do-solve-all
+           #:clear-rules
+           #:print-rules
+           #:print-rule
+           #:yes
+           #:no
+           #:*lips*
+           #:*tracing*
+           #:*error-missing-rule*
+           ;;
+           #:cut
+           #:is
+           #:lisp
+           #:lop
+           #:asserta
+           #:assertz
+           #:retract
+           #:fail
+           #:nonvar
+           #:bagof
+           #:setof
+           ))
 (in-package :gambol)
-
 
 (setf *print-circle* t)
 (proclaim '(optimize (speed 3)))
@@ -1098,5 +1106,3 @@
         ((atom exp) exp)
         (t (cons (filter-vars (car exp))
                  (filter-vars (cdr exp))))))
-
-;; end of prolog.lisp

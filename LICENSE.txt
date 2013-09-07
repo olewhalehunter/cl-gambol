@@ -1,3 +1,4 @@
+
                   Gambol - a slighly modified Frolic
 
 The GAMBOL package is a trivially modified extraction of the logic
