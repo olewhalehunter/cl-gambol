@@ -442,32 +442,32 @@
 		  (make-empty-environment (num-vars skeleton))))
 
 (defun make-goals (goals)
-  (setf *num-slots* -1)
-  (do ((goal-list goals (cdr goal-list))
-       (acc-env nil)
-       (result nil))
-      ((null goal-list)
-       (progn
-         (setf *top-level-vars* (nreverse acc-env))
-         (let ((g-env (make-empty-environment (1+ *num-slots*))))
-           (setf *top-level-envs* g-env)
-           (nreverse
-            (mapcar #'(lambda (x)
-                        (make-molecule x g-env))
-                    result)))))
-    ;; make goal skeleton
-    (let* ((env (list acc-env))
-           (skel (calcify (first goal-list) env)))
-      (setf acc-env (car env))
-      (push skel result))))
+  (let ((*num-slots* -1))
+    (do ((goal-list goals (cdr goal-list))
+         (acc-env nil)
+         (result nil))
+        ((null goal-list)
+         (progn
+           (setf *top-level-vars* (nreverse acc-env))
+           (let ((g-env (make-empty-environment (1+ *num-slots*))))
+             (setf *top-level-envs* g-env)
+             (nreverse
+              (mapcar #'(lambda (x)
+                          (make-molecule x g-env))
+                      result)))))
+      ;; make goal skeleton
+      (let* ((env (list acc-env))
+             (skel (calcify (first goal-list) env)))
+        (setf acc-env (car env))
+        (push skel result)))))
 
 
 ;; Attempt to solve a list of goals with respect to rule-base.
 (defun pl-solve (goals)
-  (setf *top-level-vars* nil)
-  (setf *top-level-envs* nil)
-  (setf *trail* nil)
-  (pl-search (make-goals goals) 0 nil))
+  (let ((*top-level-vars* nil)
+        (*top-level-envs* nil)
+        (*trail* nil))
+    (pl-search (make-goals goals) 0 nil)))
 
 ;; Search to solve goals in possible environment.
 (defun pl-search (goals level back)
@@ -745,9 +745,9 @@
 ;; Unify - unification, returns environment in which x and y are unified.
 ;; Unify sets up environments and trail, and cleans up on failure.
 (defun unify (x x-env y y-env)
-  (let ((save-trail *trail*) (ans nil))
-    (setf *x-env* x-env)                ;goal environment
-    (setf *y-env* y-env)                ;rule environment
+  (let ((save-trail *trail*) (ans nil)
+        (*x-env* x-env)                ;goal environment
+        (*y-env* y-env))                ;rule environment
     (if (impossible? (setf ans (unify1 x y))) (untrail save-trail))
     ans))
 
