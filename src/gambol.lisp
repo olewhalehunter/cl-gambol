@@ -21,10 +21,9 @@
            #:pl-asserta
            #:pl-retract
            #:pl-solve-one
-           #:pl-solve-next
-           #:pl-solve-rest
+           ;; #:pl-solve-next
+           ;; #:pl-solve-rest
            #:pl-solve-all
-           #:do-solve-all
            #:clear-rules
            #:print-rules
            #:print-rule
@@ -63,10 +62,10 @@
 (defvar *error-missing-rule*  nil "if t, signal error on missing rule")
 
 ;;; Altered in the course of finding solutions.
-(defvar *interactive*           t "true iff interacting with user")
-(defvar *auto-backtrack*      nil "return all solutions if true")
-(defvar *last-continuation*   nil "saved state of the system")
-(defvar *trail*               nil "the trail, for backtracking")
+;; (defvar *interactive*           t "true iff interacting with user")
+;; (defvar *auto-backtrack*      nil "return all solutions if true")
+;; (defvar *last-continuation*   nil "saved state of the system")
+;; (defvar *trail*               nil "the trail, for backtracking")
 (defvar *x-env*               nil "env for goals")
 (defvar *y-env*               nil "env for rules")
 (defvar *top-level-envs*      nil "saves top-level environments")
@@ -74,21 +73,21 @@
 (defvar *num-slots*            -1 "number of logical variables in a query")
 (defvar *prolog-rules*  (make-hash-table) "hash table for prolog rule heads")
 
+(defstruct qstate interactive auto-backtrack last-continuation trail)
+
 ;;; Multiple rulebases might be convenient.  In nice lisps, special
 ;;; variables are thread-safe, to boot.
 (defun make-rulebase ()
-  (list t nil nil nil nil nil nil nil -1 (make-hash-table)))
+  (list nil nil nil nil -1 (make-hash-table)))
 
 (defun current-rulebase ()
-  (list *interactive* *auto-backtrack* *last-continuation* *trail*
-        *x-env* *y-env* *top-level-envs* *top-level-vars* *num-slots*
-        *prolog-rules*))
+  (list *x-env* *y-env* *top-level-envs* *top-level-vars*
+        *num-slots* *prolog-rules*))
 
 (defmacro with-rulebase (rulebase &body body)
-  `(destructuring-bind (*interactive* *auto-backtrack* *last-continuation*
-                                      *trail* *x-env* *y-env*
-                                      *top-level-envs* *top-level-vars*
-                                      *num-slots* *prolog-rules*) ,rulebase
+  `(destructuring-bind (*x-env* *y-env*
+                        *top-level-envs* *top-level-vars*
+                        *num-slots* *prolog-rules*) ,rulebase
      ,@body))
 
 
@@ -209,10 +208,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Bind logical variable x to y and push it on the trail.
-(defun pl-bind (x x-env y y-env)
+(defun pl-bind (x x-env y y-env qstate)
   (or (anon-var? x)
       (progn
-	(push (cons x-env (var-index x)) *trail*)
+	(push (cons x-env (var-index x)) (qstate-trail qstate))
 	(setf (lookup-var x x-env)
 	      (if (atom y) y (make-molecule y y-env))))))
 
@@ -220,13 +219,13 @@
 (defun unbind-var (binding)
   (setf (svref (car binding) (cdr binding)) '*undefined*))
 
-(defun untrail (mark)
+(defun untrail (mark qstate)
   #-PCLS
   (declare (inline unbind-var))
   (loop
-     (if (eq *trail* mark)
+     (if (eq (qstate-trail qstate) mark)
          (return)
-         (unbind-var (pop *trail*)))))
+         (unbind-var (pop (qstate-trail qstate))))))
 
 (defmacro rule-head (molecule)
   `(head (mol-skel ,molecule)))
@@ -338,7 +337,7 @@
 ;; The general form is (is ?v1 ... ?vn (lop (lisp-hook))).
 ;; Binds the ?vi variables to the values returned from (lisp-hook).
 
-(defun do-is (molecule)
+(defun do-is (molecule qstate)
   (let ((goal (mol-skel molecule))
         (env (mol-env molecule)) 
         (hook nil)
@@ -360,7 +359,7 @@
           ((< (length retvals) (length vars))
            (error "IS: LOP returns too few values (~s)" goal))
           (t (dolist (var (nreverse vars))
-               (setf return-env (unify var env (pop retvals) env))
+               (setf return-env (unify var env (pop retvals) env qstate))
                (if (impossible? return-env) (return return-env)))))
     return-env))
 
@@ -463,14 +462,13 @@
 
 
 ;; Attempt to solve a list of goals with respect to rule-base.
-(defun pl-solve (goals)
+(defun pl-solve (goals qstate)
   (let ((*top-level-vars* nil)
-        (*top-level-envs* nil)
-        (*trail* nil))
-    (pl-search (make-goals goals) 0 nil)))
+        (*top-level-envs* nil))
+    (pl-search (make-goals goals) 0 nil qstate)))
 
 ;; Search to solve goals in possible environment.
-(defun pl-search (goals level back)
+(defun pl-search (goals level back qstate)
   (let* ((functor (goal-functor (first goals)))
          (rules (get-rule-molecules functor)))
     (when (and *error-missing-rule*
@@ -480,11 +478,7 @@
                ;; if it is a builtin, skip it
                (not (member functor *builtin-functors*)))
       (error "Rule missing from rulebase: ~a" functor))
-    (search-rules
-     goals
-     rules
-     level
-     back)))
+    (search-rules goals rules level back qstate)))
 
 ;; Called when a goal successfully matched a rule or fact in the database
 ;; (used for I/O and debugging).
@@ -501,7 +495,7 @@
                                                      (mol-env rule) t))
                         (format nil " Fact: ~S" rule)))))))
 
-(defun succeed-continue (goal goals rule level back)
+(defun succeed-continue (goal goals rule level back qstate)
   (succeed-trace goal rule back)
   ;; pop level tags off top of goal stack and adjust level accordingly
   (loop
@@ -510,7 +504,7 @@
            (decf level)
            (pop goals))
          (return)))
-  (pl-search goals level back))
+  (pl-search goals level back qstate))
 
 ;; Called when a goal fails to match a rule or fact in the database
 ;; (used for I/O, debugging).
@@ -519,25 +513,17 @@
     (format t "~%Goal: ~a fails...~%"
             (expand-logical-vars (mol-skel goal) (mol-env goal) t))))
 
-(defmacro fail-continue (goal back)
+(defmacro fail-continue (goal back qstate)
   `(progn (fail-trace ,goal)
-          (continue-on ,back)))
+          (continue-on ,back ,qstate)))
 
-(defun do-nonvar (goal goals level back)
+(defun do-nonvar (goal goals level back qstate)
   (let ((arg (second (mol-skel goal))))
     (if (or
          (not (var? arg))
          (pl-bound? (lookup-var arg (mol-env goal))))
-        (succeed-continue goal (rest goals) nil level back)
-        (fail-continue goal back))))
-
-(defun do-number (goal goals level back)
-  (let ((arg (second (mol-skel goal))))
-    (if (or
-         (numberp arg)
-         (numberp (lookup-var arg (mol-env goal))))
-        (succeed-continue goal (rest goals) nil level back)
-        (fail-continue goal back))))
+        (succeed-continue goal (rest goals) nil level back qstate)
+        (fail-continue goal back qstate))))
 
 (defun replace-var-mol (skel env-list)
   (cond
@@ -548,7 +534,7 @@
      (mapcar (lambda (s) (replace-var-mol s env-list)) skel))
     (T skel)))
 
-(defun do-call (goal goals level back)
+(defun do-call (goal goals level back qstate)
   (let ((var-val (lookup-var (mol-skel goal) (mol-env goal))))
     (if (molecule-p var-val)
         (let* ((var-box (cons nil nil))
@@ -560,43 +546,44 @@
                (actual-skel (replace-var-mol new-skel env-list))
                (new-env (map 'vector #'identity env-list))
                (new-goal (make-molecule actual-skel new-env)))
-          (pl-search (cons new-goal (cdr goals)) level back))
-        (fail-continue goal back))))
+          (pl-search (cons new-goal (cdr goals)) level back qstate))
+        (fail-continue goal back qstate))))
 
 ;; Attempt to match a goal against rules in the database.
-(defun search-rules (goals rules level back)
+(defun search-rules (goals rules level back qstate)
   #-PCLS
   (declare (inline succeed-continue))
   (let* ((goal (first goals))
          (is-molecule (molecule-p goal))
          (fsym (if is-molecule (functor (mol-skel goal)) nil)))
     (if (null goals)
-        (succeed back)
+        (succeed back qstate)
         (case fsym
           ;; goal is a call to unify (=)
           (=
-           (if (impossible? (do-unify goal))
-               (fail-continue goal back)
-               (succeed-continue goal (rest goals) nil level back)))
+           (if (impossible? (do-unify goal qstate))
+               (fail-continue goal back qstate)
+               (succeed-continue goal (rest goals) nil level back qstate)))
           ;; goal is a prolog "cut" clause
           (cut
-           (succeed-continue goal (rest goals) nil level (do-cut back level)))
+           (succeed-continue goal (rest goals) nil level (do-cut back level)
+                             qstate))
           ;; goal is an "is" clause
           (is
-           (if (impossible? (do-is goal))
-               (fail-continue goal back)
-               (succeed-continue goal (rest goals) nil level back)))
+           (if (impossible? (do-is goal qstate))
+               (fail-continue goal back qstate)
+               (succeed-continue goal (rest goals) nil level back qstate)))
           ;; adding new data to the database - always succeeds
           (asserta
            (pl-asserta (list (expand-logical-vars
                               (second (mol-skel goal))
                               (mol-env goal))))
-           (succeed-continue goal (rest goals) nil level back))
+           (succeed-continue goal (rest goals) nil level back qstate))
           (assertz
            (pl-assert (list (expand-logical-vars
                              (second (mol-skel goal))
                              (mol-env goal))))
-           (succeed-continue goal (rest goals) nil level back))
+           (succeed-continue goal (rest goals) nil level back qstate))
           ;; Retract succeeds if it finds something to yank out.
           (retract
            ;; FILTER-VARS because you can retract facts with logical
@@ -605,30 +592,30 @@
                                        (expand-logical-vars
                                         (second (mol-skel goal))
                                         (mol-env goal))))))
-               (fail-continue goal back)
-               (succeed-continue goal (rest goals) nil level back)))
+               (fail-continue goal back qstate)
+               (succeed-continue goal (rest goals) nil level back qstate)))
           (fail
-           (fail-continue goal back))
+           (fail-continue goal back qstate))
           ;; goal is a common lisp hook - always succeeds
           (lisp
            (do-lisp-hook goal)
-           (succeed-continue goal (rest goals) nil level back))
+           (succeed-continue goal (rest goals) nil level back qstate))
           ;; goal is a common lisp query
           (lop
            (if (impossible? (do-lisp-hook goal))
-               (fail-continue goal back)
-               (succeed-continue goal (rest goals) nil level back)))
+               (fail-continue goal back qstate)
+               (succeed-continue goal (rest goals) nil level back qstate)))
           ;; nonvar/1
           (nonvar
-           (do-nonvar goal goals level back))
+           (do-nonvar goal goals level back qstate))
           (otherwise
            (if (and is-molecule (var? (mol-skel goal)))
                ;; I think I got the call mechanism working correctly. It
                ;; creates a new environment with single var molecules for
                ;; all unbound vars. Yeah, that should do it. -SAG
-               (do-call goal goals level back)
+               (do-call goal goals level back qstate)
                ;; otherwise, goal is a general prolog goal
-               (match-rule-head goal goals rules level back)))))))
+               (match-rule-head goal goals rules level back qstate)))))))
 
 ;; Match a goal against the pending rules.  NOTE that the result of this
 ;; function is nconc'ed in match-rule-head.
@@ -641,15 +628,15 @@
                            env)
             result))))
 
-(defun match-rule-head (goal goals pending-rules level back)
+(defun match-rule-head (goal goals pending-rules level back qstate)
   #-PCLS
   (declare (inline succeed-continue))
   (do ((rules pending-rules (rest rules))
-       (old-trail *trail*))
-      ((null rules) (fail-continue goal back))
+       (old-trail (qstate-trail qstate)))
+      ((null rules) (fail-continue goal back qstate))
     (if (not (impossible? (unify (goal-body goal) (goal-env goal)
                                  (rule-head (first rules))
-                                 (rule-env (first rules)))))
+                                 (rule-env (first rules)) qstate)))
         (let ((new-goals (new-goals (first rules))))
           (incf *lips*)
           (return
@@ -663,21 +650,23 @@
                         level           ; level
                         back            ; back
                         old-trail       ; trail
-                        nil)))))))	    ; trace
+                        nil)
+             qstate))))))	    ; trace
 
 ;; Continue searching with continuation - used to backtrack to a choice
 ;; point and continue executing.
-(defun continue-on (cont)
+(defun continue-on (cont qstate)
   (if (null cont)
       *impossible*
       (if (null (cont-goals cont))
-          (continue-on (cont-back cont))
+          (continue-on (cont-back cont) qstate)
           (progn
             ;; wrap trail back to last choice point, undoing bindings
-            (untrail (cont-trail cont))
+            (untrail (cont-trail cont) qstate)
             ;; resume search
             (search-rules (cont-goals cont) (cont-rules cont)
-                          (cont-level cont) (cont-back cont))))))
+                          (cont-level cont) (cont-back cont)
+                          qstate)))))
 
 ;; Remove alternatives from a continuation - used to strip away pending
 ;; goals when a cut operator is executed.
@@ -702,12 +691,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Explicit call to unify (= lhs rhs) - unify lhs with rhs.
-(defun do-unify (goal)
+(defun do-unify (goal qstate)
   (let* ((skel (mol-skel goal))
          (env (mol-env goal))
          (lhs (cadr skel))
          (rhs (caddr skel)))
-    (unify (expand-lisp-hooks lhs env) env (expand-lisp-hooks rhs env) env)))
+    (unify (expand-lisp-hooks lhs env) env (expand-lisp-hooks rhs env) env qstate)))
 
 ;; If term is a lisp-query, it is evaluated and its result returned; if not,
 ;; it is simply returned.
@@ -744,60 +733,61 @@
 
 ;; Unify - unification, returns environment in which x and y are unified.
 ;; Unify sets up environments and trail, and cleans up on failure.
-(defun unify (x x-env y y-env)
-  (let ((save-trail *trail*) (ans nil)
+(defun unify (x x-env y y-env qstate)
+  (let ((save-trail (qstate-trail qstate)) (ans nil)
         (*x-env* x-env)                ;goal environment
         (*y-env* y-env))                ;rule environment
-    (if (impossible? (setf ans (unify1 x y))) (untrail save-trail))
+    (if (impossible? (setf ans (unify1 x y qstate))) (untrail save-trail qstate))
     ans))
 
 ;; Unify1 dereferences variables in their environments.
-(defun unify1 (x y)
-  (unify2 (x-view-var x *x-env*) (y-view-var y *y-env*)))
+(defun unify1 (x y qstate)
+  (unify2 (x-view-var x *x-env*) (y-view-var y *y-env*) qstate))
 
 ;; Unify2 is the main unification routine.
-(defun unify2 (x y)
+(defun unify2 (x y qstate)
   #-PCLS
   (declare (inline pl-bind))
-  (cond ((var? x) (pl-bind x *x-env* y *y-env*))
+  (cond ((var? x) (pl-bind x *x-env* y *y-env* qstate))
         ;; bind variables if distinct
-        ((var? y) (pl-bind y *y-env* x *x-env*))
+        ((var? y) (pl-bind y *y-env* x *x-env* qstate))
         ;; unify atoms 
         ((atom x) (if (equalp x y) t *impossible*))
         ((atom y) *impossible*)
         ;; both terms complex
         ((let ((x-env *x-env*)
                (y-env *y-env*))
-           (if (impossible? (unify1 (car x) (car y)))
+           (if (impossible? (unify1 (car x) (car y) qstate))
                *impossible*
                (progn
                  (setf *x-env* x-env)
                  (setf *y-env* y-env)
-                 (unify1 (cdr x) (cdr y))))))))
+                 (unify1 (cdr x) (cdr y) qstate)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Success and failure display functions.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Success - report solutions to user.
-(defun succeed (back)
-  (when *interactive*
+(defun succeed (back qstate)
+  (when (qstate-interactive qstate)
     (show-bindings *top-level-vars*
                    *top-level-envs*))
-  (setf *last-continuation* back)
+  (setf (qstate-last-continuation qstate) back)
   ;; query the user if more
-  (if (or *auto-backtrack* (and *interactive* (y-or-n-p "More? ")))
+  (if (or (qstate-auto-backtrack qstate)
+          (and (qstate-interactive qstate) (y-or-n-p "More? ")))
       ;; force failure to get more solutions
       (let* ((save-binding-list
               (build-binding-list *top-level-vars* *top-level-envs*))
-             (ans (continue-on back)))
+             (ans (continue-on back qstate)))
         (if (impossible? ans)
-            (if *interactive* 
+            (if (qstate-interactive qstate) 
                 ans
                 (list save-binding-list))
             (append (list save-binding-list)
                     ans)))
-      (if (not *interactive*) 
+      (if (not (qstate-interactive qstate)) 
           (build-binding-list *top-level-vars* *top-level-envs*))))
 
 ;; Build a list of the bindings.
@@ -923,44 +913,33 @@
 ;; that subsequent calls to solve-next can get other solutions - the return
 ;; value is an environment, an alist with (var . binding) pairs.
 (defmacro pl-solve-one (&rest goals)
-  `(let ((*interactive* nil)
-         (*auto-backtrack* nil))
-     (filter-no (pl-solve (parse-rules ,@goals)))))
+  `(filter-no (pl-solve (parse-rules ,@goals)
+                        (make-qstate :interactive nil
+                                     :auto-backtrack nil))))
 
 ;; Return the next solution, using *last-continuation* (the continuation
 ;; from the most recent pl-solve-one or pl-solve-cc) or the optional
 ;; continuation provided.
-(defun pl-solve-next (&optional (cont *last-continuation*))
-  (let ((*interactive* nil)
-        (*auto-backtrack* nil))
-    (filter-no (continue-on cont))))
+;; (defun pl-solve-next (&optional (cont *last-continuation*))
+;;   (let ((*interactive* nil)
+;;         (*auto-backtrack* nil))
+;;     (filter-no (continue-on *last-continuation* qstate))))
 
 ;; Return the rest of the solutions, using *last-continuation* (the
 ;; continuation from the most recent pl-solve-one or pl-solve-cc) or the
 ;; optional continuation provided.
-(defun pl-solve-rest (&optional (cont *last-continuation*))
-  (let ((*interactive* nil)
-        (*auto-backtrack* t))
-    (filter-no (continue-on cont))))
+;; (defun pl-solve-rest (&optional (cont *last-continuation*))
+;;   (let ((*interactive* nil)
+;;         (*auto-backtrack* t))
+;;     (filter-no (continue-on cont))))
 
 ;; Return all solutions to the query - the return value is a list of
 ;; environments (env env ...) where each environment is a
 ;; ((var . binding)...) alist.
 (defmacro pl-solve-all (&rest goals)
-  `(let ((*interactive* nil)
-         (*auto-backtrack* t))
-     (filter-no (pl-solve (parse-rules ,@goals)))))
-
-;;; (do-solve-all (?who) '((mortal ?who))
-;;;   (print ?who))
-(defmacro do-solve-all ((&rest vars) (&rest goals) &body body)
-  (let* ((env (gensym "ENV"))
-         (binding-list (loop for var in vars
-                          collecting (list var `(cdr (assoc ',var ,env))))))
-    `(do ((,env (pl-solve-one ,@goals) (pl-solve-next)))
-         ((null ,env))
-       (let ,binding-list
-         ,@body))))
+  `(filter-no (pl-solve (parse-rules ,@goals)
+                        (make-qstate :interactive nil
+                                     :auto-backtrack t))))
 
 (defun make-pattern-builder (pattern)
   (cond
@@ -1011,15 +990,13 @@
   ;; Paranoia - since retraction will run during on-going solution searches,
   ;; we have to protect all the specials involved in that search while we do
   ;; a new search for the rule to retract.
-  (let* ((*interactive* nil)
-         (*auto-backtrack* nil)
-         (*last-continuation* nil)
-         (*trail* nil)
-         (*x-env* nil)
+  (let* ((*x-env* nil)
          (*y-env* nil)
          (*top-level-envs* nil)
          (*top-level-vars* nil)
-         (clause (filter-no (pl-solve goals))))
+         (clause (filter-no (pl-solve goals
+                                      (make-qstate :interactive nil
+                                                   :auto-backtrack nil)))))
     (cond ((null clause) nil)           ; no match
           ((eq clause t)                ; literal match
            (retract-fact goals)
@@ -1041,15 +1018,15 @@
 
 ;; Interactive version of pl-solve-one.
 (defmacro ?- (&rest goals)
-  `(let ((*interactive* t)
-         (*auto-backtrack* nil))
-     (pl-solve (parse-rules ,@goals))))
+  `(pl-solve (parse-rules ,@goals)
+             (make-qstate :interactive t
+                          :auto-backtrack nil)))
 
 ;; Interactive version of pl-solve-all.
 (defmacro ??- (&rest goals)
-  `(let ((*interactive* t)
-         (*auto-backtrack* t))
-     (pl-solve (parse-rules ,@goals))))
+  `(pl-solve (parse-rules ,@goals)
+             (make-qstate :interactive t
+                          :auto-backtrack t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Rule and database manipulation and printing.
