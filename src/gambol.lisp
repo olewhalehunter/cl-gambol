@@ -885,6 +885,12 @@
 (defmacro parse-rules (&rest rules)
   `(list ,@(mapcar #'transform-rule rules)))
 
+(defmacro lop (&rest body)
+	(transform-lisp-rule (cons 'lop body)))
+
+(defmacro lisp (&rest body)
+	(transform-lisp-rule (cons 'lisp body)))
+
 ;; Add a rule to the database.
 
 ;; Destructively modify a rule to produce a skeleton rule.  Each logical
@@ -905,17 +911,16 @@
       rule)))
 
 ;; Makes sure lisp gets nil on failure instead of *impossible*.
-(defmacro filter-no (value)
-  `(let ((retval ,value))
-     (if (impossible? retval) nil retval)))
+(defun filter-no (value)
+  (if (impossible? value) nil value))
 
 ;; Return the first solution to the query, setting *last-continuation* so
 ;; that subsequent calls to solve-next can get other solutions - the return
 ;; value is an environment, an alist with (var . binding) pairs.
-(defmacro pl-solve-one (&rest goals)
-  `(filter-no (pl-solve (parse-rules ,@goals)
-                        (make-qstate :interactive nil
-                                     :auto-backtrack nil))))
+(defun pl-solve-one (&rest goals)
+  (filter-no (pl-solve goals
+											 (make-qstate :interactive nil
+																		:auto-backtrack nil))))
 
 ;; Return the next solution, using *last-continuation* (the continuation
 ;; from the most recent pl-solve-one or pl-solve-cc) or the optional
@@ -936,10 +941,10 @@
 ;; Return all solutions to the query - the return value is a list of
 ;; environments (env env ...) where each environment is a
 ;; ((var . binding)...) alist.
-(defmacro pl-solve-all (&rest goals)
-  `(filter-no (pl-solve (parse-rules ,@goals)
-                        (make-qstate :interactive nil
-                                     :auto-backtrack t))))
+(defun pl-solve-all (&rest goals)
+  (filter-no (pl-solve goals
+											 (make-qstate :interactive nil
+																		:auto-backtrack t))))
 
 (defun make-pattern-builder (pattern)
   (cond
