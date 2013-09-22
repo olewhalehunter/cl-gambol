@@ -882,8 +882,8 @@
         (otherwise
          `(quote ,rule))))))
 
-(defmacro parse-rules (&rest rules)
-  `(list ,@(mapcar #'transform-rule rules)))
+(defun parse-rules (rules)
+  (mapcar #'transform-rule rules))
 
 (defmacro lop (&rest body)
 	(transform-lisp-rule (cons 'lop body)))
@@ -1019,17 +1019,17 @@
 ;; (used to be called :- but common lisp thinks :- is a keyword).
 
 (defmacro *- (&rest rules)
-  `(pl-assert (parse-rules ,@rules)))
+  `(pl-assert (list ,@(parse-rules rules))))
 
 ;; Interactive version of pl-solve-one.
 (defmacro ?- (&rest goals)
-  `(pl-solve (parse-rules ,@goals)
+  `(pl-solve (list ,@(parse-rules goals))
              (make-qstate :interactive t
                           :auto-backtrack nil)))
 
 ;; Interactive version of pl-solve-all.
 (defmacro ??- (&rest goals)
-  `(pl-solve (parse-rules ,@goals)
+  `(pl-solve (list ,@(parse-rules goals))
              (make-qstate :interactive t
                           :auto-backtrack t)))
 

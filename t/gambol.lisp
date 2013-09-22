@@ -11,7 +11,9 @@
   (:shadowing-import-from :gambol :is :fail))
 (in-package :gambol-test)
 
-(setf (symbol-function 'test-is) (symbol-function 'cl-test-more:is))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+	(setf (symbol-function 'test-is) (symbol-function 'cl-test-more:is)))
+
 (clear-rules)
 (setf *print-circle* nil)
 
