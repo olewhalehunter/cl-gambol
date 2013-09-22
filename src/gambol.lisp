@@ -917,7 +917,7 @@
 ;; Return the first solution to the query, setting *last-continuation* so
 ;; that subsequent calls to solve-next can get other solutions - the return
 ;; value is an environment, an alist with (var . binding) pairs.
-(defun pl-solve-one (&rest goals)
+(defun pl-solve-one (goals)
   (filter-no (pl-solve goals
 											 (make-qstate :interactive nil
 																		:auto-backtrack nil))))
@@ -941,7 +941,7 @@
 ;; Return all solutions to the query - the return value is a list of
 ;; environments (env env ...) where each environment is a
 ;; ((var . binding)...) alist.
-(defun pl-solve-all (&rest goals)
+(defun pl-solve-all (goals)
   (filter-no (pl-solve goals
 											 (make-qstate :interactive nil
 																		:auto-backtrack t))))
@@ -956,13 +956,13 @@
      (list 'cdr (list 'assoc (list 'quote pattern) 'env)))
     (T pattern)))
 
-(defmacro bagof (pattern &rest goals)
+(defmacro bagof (pattern goals)
   `(mapcar (lambda (env)
                ,(make-pattern-builder pattern))
-             (pl-solve-all ,@goals)))
+             (pl-solve-all ,goals)))
 
-(defmacro setof (pattern &rest goals)
-  `(remove-duplicates (bagof ,pattern ,@goals) :test #'equal))
+(defmacro setof (pattern goals)
+  `(remove-duplicates (bagof ,pattern ,goals) :test #'equal))
 
 ;;; "I didn't mean that."  The next three functions handle the delicate
 ;;; matter of rule retraction.  It is at least as robust as some commercial
