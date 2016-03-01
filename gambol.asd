@@ -11,7 +11,7 @@
   :components ((:module "src"
                 :components
                 ((:file "gambol"))))
-  :description ""
+  :description "A buggy, incomplete implementation of Prolog."
   :long-description
   #.(with-open-file (stream (merge-pathnames
                              #p"README.markdown"
